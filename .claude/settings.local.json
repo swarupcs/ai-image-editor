@@ -16,7 +16,8 @@
       "Bash(find E:\\\\My Projects\\\\ai-image-editor\\\\src\\\\app\\\\\\(protected\\):*)",
       "Bash(ls:*)",
       "Bash(pnpm tsc:*)",
-      "Bash(Remove-Item:*)"
+      "Bash(Remove-Item:*)",
+      "Bash(grep:*)"
     ]
   }
 }

@@ -10,6 +10,7 @@ import { RightSidebar } from "@/components/right-sidebar";
 import { useCallback, useRef, useState } from "react";
 import { useEditorStore } from "@/store/useEditorState";
 import ImageEditor from "@/components/image-editor";
+import { BeforeAfterSlider } from "@/components/before-after-slider";
 import {
   ImagePlus,
   Upload,
@@ -26,6 +27,7 @@ export default function EditorPage() {
     image,
     setImage,
     showHistory,
+    showBeforeAfter,
     isLoading,
     prompt,
     setPrompt,
@@ -264,6 +266,8 @@ export default function EditorPage() {
           {showHistory && <RightSidebar />}
         </div>
       </div>
+
+      {showBeforeAfter && <BeforeAfterSlider />}
     </>
   );
 }

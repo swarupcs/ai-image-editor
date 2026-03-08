@@ -9,11 +9,25 @@ import {
   Image as ImageIcon,
   Maximize,
   Delete,
+  Crop,
+  Type,
+  Pipette,
+  Wand2,
+  SunMedium,
+  Contrast,
+  Droplets,
+  Blend,
+  Smile,
+  Upload,
+  Layers,
+  Plus,
+  RotateCcw,
 } from "lucide-react";
 
 import { Slider } from "@/components/ui/slider";
 import { ScrollArea } from "@/components/ui/scroll-area";
-
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Accordion,
   AccordionContent,
@@ -22,8 +36,10 @@ import {
 } from "@/components/ui/accordion";
 import GridItem from "@/components/grid-item";
 import { filters, ratios, ToolType } from "@/lib/constants";
-import { ToolButton } from "@/components//tool-button";
+import { ToolButton } from "@/components/tool-button";
 import { useEditorStore } from "@/store/useEditorState";
+import { useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 
 export const LeftSidebar = () => {
   const {
@@ -32,12 +48,43 @@ export const LeftSidebar = () => {
     applyExpansion,
     removeBackground,
     enhanceImage,
+    enhanceFace,
     setSelectedTool,
     selectedTool,
     setBrushSize,
     brushSize,
     image,
+    adjustments,
+    setAdjustments,
+    resetAdjustments,
+    applyAdjustments,
+    addTextLayer,
+    flattenTextLayers,
+    blendSource,
+    setBlendSource,
+    applyBlend,
+    pickedColor,
   } = useEditorStore();
+
+  const blendInputRef = useRef<HTMLInputElement>(null);
+  const [newText, setNewText] = useState("Your Text");
+  const [blendPrompt, setBlendPrompt] = useState("");
+
+  const handleBlendUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = ev.target?.result as string;
+      setBlendSource(result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const hasAdjustmentChanges =
+    adjustments.brightness !== 100 ||
+    adjustments.contrast !== 100 ||
+    adjustments.saturation !== 100;
 
   return (
     <aside className="hidden md:flex w-72 flex-col border-r border-zinc-800/50 bg-zinc-950/80 backdrop-blur-xl z-20 shrink-0 h-full">
@@ -74,6 +121,30 @@ export const LeftSidebar = () => {
                 icon={<Eraser size={16} />}
                 label="Erase"
               />
+              <ToolButton
+                active={selectedTool === ToolType.CROP}
+                onClick={() => setSelectedTool(ToolType.CROP)}
+                icon={<Crop size={16} />}
+                label="Crop"
+              />
+              <ToolButton
+                active={selectedTool === ToolType.TEXT}
+                onClick={() => setSelectedTool(ToolType.TEXT)}
+                icon={<Type size={16} />}
+                label="Text"
+              />
+              <ToolButton
+                active={selectedTool === ToolType.COLOR_PICKER}
+                onClick={() => setSelectedTool(ToolType.COLOR_PICKER)}
+                icon={<Pipette size={16} />}
+                label="Picker"
+              />
+              <ToolButton
+                active={selectedTool === ToolType.SMART_REMOVE}
+                onClick={() => setSelectedTool(ToolType.SMART_REMOVE)}
+                icon={<Wand2 size={16} />}
+                label="Remove"
+              />
             </div>
 
             {/* Brush Size */}
@@ -86,7 +157,6 @@ export const LeftSidebar = () => {
                   {brushSize}px
                 </span>
               </div>
-
               <Slider
                 defaultValue={[brushSize]}
                 max={100}
@@ -96,9 +166,151 @@ export const LeftSidebar = () => {
                 className="py-1.5 [&>.relative>.absolute]:bg-purple-500 **:[[role=slider]]:border-purple-500 **:[[role=slider]]:bg-zinc-950 **:[[role=slider]]:ring-offset-zinc-950 **:[[role=slider]]:focus-visible:ring-purple-500"
               />
             </div>
+
+            {/* Color Picker display */}
+            {selectedTool === ToolType.COLOR_PICKER && (
+              <div className="flex items-center gap-2 px-1 pt-1">
+                <div
+                  className="w-6 h-6 rounded border border-zinc-700 shrink-0"
+                  style={{ background: pickedColor ?? "#transparent" }}
+                />
+                <span className="text-xs font-mono text-zinc-400">
+                  {pickedColor ?? "Click image to pick"}
+                </span>
+              </div>
+            )}
           </div>
 
-          {/* 2. AI Options Section */}
+          {/* 2. Adjustments Section */}
+          <div className="space-y-3 bg-zinc-900/40 p-3 rounded-xl border border-zinc-800/30">
+            <div className="flex items-center justify-between px-1">
+              <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest">
+                Adjustments
+              </h3>
+              {hasAdjustmentChanges && (
+                <button
+                  onClick={resetAdjustments}
+                  className="text-[10px] text-zinc-500 hover:text-zinc-300 flex items-center gap-1 transition-colors"
+                >
+                  <RotateCcw size={10} />
+                  Reset
+                </button>
+              )}
+            </div>
+
+            {/* Brightness */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center px-1">
+                <div className="flex items-center gap-1.5">
+                  <SunMedium size={11} className="text-zinc-500" />
+                  <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
+                    Brightness
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono text-zinc-400">{adjustments.brightness}%</span>
+              </div>
+              <Slider
+                value={[adjustments.brightness]}
+                min={0}
+                max={200}
+                step={1}
+                onValueChange={([v]) => setAdjustments({ brightness: v })}
+                className="py-1 [&>.relative>.absolute]:bg-yellow-500/70 **:[[role=slider]]:border-yellow-500/70 **:[[role=slider]]:bg-zinc-950"
+              />
+            </div>
+
+            {/* Contrast */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center px-1">
+                <div className="flex items-center gap-1.5">
+                  <Contrast size={11} className="text-zinc-500" />
+                  <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
+                    Contrast
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono text-zinc-400">{adjustments.contrast}%</span>
+              </div>
+              <Slider
+                value={[adjustments.contrast]}
+                min={0}
+                max={200}
+                step={1}
+                onValueChange={([v]) => setAdjustments({ contrast: v })}
+                className="py-1 [&>.relative>.absolute]:bg-blue-500/70 **:[[role=slider]]:border-blue-500/70 **:[[role=slider]]:bg-zinc-950"
+              />
+            </div>
+
+            {/* Saturation */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center px-1">
+                <div className="flex items-center gap-1.5">
+                  <Droplets size={11} className="text-zinc-500" />
+                  <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
+                    Saturation
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono text-zinc-400">{adjustments.saturation}%</span>
+              </div>
+              <Slider
+                value={[adjustments.saturation]}
+                min={0}
+                max={200}
+                step={1}
+                onValueChange={([v]) => setAdjustments({ saturation: v })}
+                className="py-1 [&>.relative>.absolute]:bg-pink-500/70 **:[[role=slider]]:border-pink-500/70 **:[[role=slider]]:bg-zinc-950"
+              />
+            </div>
+
+            <Button
+              onClick={applyAdjustments}
+              disabled={!image || !hasAdjustmentChanges || isLoading}
+              size="sm"
+              className="w-full h-8 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-0"
+            >
+              Apply Adjustments
+            </Button>
+          </div>
+
+          {/* 3. Text Overlay Section */}
+          <div className="space-y-2.5 bg-zinc-900/40 p-3 rounded-xl border border-zinc-800/30">
+            <div className="flex items-center justify-between px-1">
+              <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5">
+                <Type size={10} />
+                Text Overlay
+              </h3>
+            </div>
+            <div className="flex gap-1.5">
+              <Input
+                value={newText}
+                onChange={(e) => setNewText(e.target.value)}
+                placeholder="Enter text…"
+                className="h-8 text-xs bg-zinc-800/60 border-zinc-700/50 text-zinc-200 placeholder:text-zinc-600 flex-1"
+              />
+              <Button
+                size="sm"
+                disabled={!image || !newText.trim()}
+                onClick={() => {
+                  addTextLayer(newText.trim());
+                  setSelectedTool(ToolType.TEXT);
+                }}
+                className="h-8 w-8 p-0 bg-purple-600 hover:bg-purple-500 border-0 shrink-0"
+              >
+                <Plus size={14} />
+              </Button>
+            </div>
+            <Button
+              onClick={flattenTextLayers}
+              disabled={!image || isLoading}
+              variant="ghost"
+              size="sm"
+              className="w-full h-7 text-[11px] text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50"
+            >
+              <Layers size={11} className="mr-1.5" />
+              Flatten to Image
+            </Button>
+          </div>
+
+          {/* 4. AI Options Section */}
           <div className="space-y-2 bg-zinc-900/40 p-3 rounded-xl border border-zinc-800/30">
             <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest px-1">
               AI Options
@@ -115,27 +327,92 @@ export const LeftSidebar = () => {
                 <AccordionTrigger className="text-zinc-300 hover:text-purple-400 hover:no-underline py-2.5 transition-colors text-sm">
                   <div className="flex items-center gap-2">
                     <Sparkles size={14} className="text-purple-400" />
-                    <span className="text-xs font-medium">
-                      Editing Options
-                    </span>
+                    <span className="text-xs font-medium">Editing Options</span>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="pt-1 pb-3 space-y-1.5">
                   <div className="grid grid-cols-2 gap-1.5">
                     <GridItem
                       icon={Delete}
-                      label={"Remove BG"}
+                      label="Remove BG"
                       onClick={removeBackground}
                       disabled={isLoading || !image}
                     />
                     <GridItem
                       icon={Sparkles}
-                      label={"AI Enhance"}
-                      desc={""}
+                      label="AI Enhance"
                       onClick={enhanceImage}
                       disabled={isLoading || !image}
                     />
+                    <GridItem
+                      icon={Smile}
+                      label="Face Enhance"
+                      onClick={enhanceFace}
+                      disabled={isLoading || !image}
+                    />
                   </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* Image Blend */}
+              <AccordionItem value="blend" className="border-zinc-800/30">
+                <AccordionTrigger className="text-zinc-300 hover:text-purple-400 hover:no-underline py-2.5 transition-colors text-sm">
+                  <div className="flex items-center gap-2">
+                    <Blend size={14} className="text-purple-400" />
+                    <span className="text-xs font-medium">Blend / Composite</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="pt-1 pb-3 space-y-2.5">
+                  <input
+                    ref={blendInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleBlendUpload}
+                  />
+                  {blendSource ? (
+                    <div className="space-y-2">
+                      <div className="relative rounded-lg overflow-hidden border border-zinc-700">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={blendSource}
+                          alt="Blend source"
+                          className="w-full h-24 object-cover"
+                        />
+                        <button
+                          onClick={() => setBlendSource(null)}
+                          className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center text-zinc-300 hover:text-white"
+                        >
+                          ×
+                        </button>
+                      </div>
+                      <Input
+                        value={blendPrompt}
+                        onChange={(e) => setBlendPrompt(e.target.value)}
+                        placeholder="Blend instruction (optional)…"
+                        className="h-8 text-xs bg-zinc-800/60 border-zinc-700/50 text-zinc-200 placeholder:text-zinc-600"
+                      />
+                      <Button
+                        onClick={() => applyBlend(blendPrompt)}
+                        disabled={isLoading || !image}
+                        size="sm"
+                        className="w-full h-8 text-xs bg-purple-600 hover:bg-purple-500 border-0"
+                      >
+                        <Blend size={12} className="mr-1.5" />
+                        Apply Blend
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={() => blendInputRef.current?.click()}
+                      variant="outline"
+                      size="sm"
+                      className="w-full h-9 text-xs border-dashed border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:border-zinc-500 bg-transparent"
+                    >
+                      <Upload size={13} className="mr-1.5" />
+                      Upload Second Image
+                    </Button>
+                  )}
                 </AccordionContent>
               </AccordionItem>
 

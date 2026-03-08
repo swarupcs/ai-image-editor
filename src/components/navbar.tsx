@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Download,
-  History,
   Redo,
   Undo,
   Upload,
@@ -15,6 +14,7 @@ import {
   Save,
   Zap,
   CheckCircle2,
+  SplitSquareHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEditorStore } from "@/store/useEditorState";
@@ -24,6 +24,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ExportPanel } from "@/components/export-panel";
+import { BeforeAfterSlider } from "@/components/before-after-slider";
 
 export function Navbar({
   fileInputRef,
@@ -41,10 +43,12 @@ export function Navbar({
     credits,
     fetchCredits,
     saveCurrentImage,
+    toggleBeforeAfter,
   } = useEditorStore();
 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [showExport, setShowExport] = useState(false);
 
   useEffect(() => {
     fetchCredits();
@@ -70,6 +74,7 @@ export function Navbar({
   };
 
   return (
+    <>
     <header className="h-14 bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-800/50 flex items-center justify-between px-4 shrink-0 z-50">
       {/* Left: Branding */}
       <div className="flex items-center gap-3">
@@ -203,10 +208,28 @@ export function Navbar({
             </TooltipContent>
           </Tooltip>
 
+          {/* Compare before/after */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                onClick={handleDownload}
+                onClick={toggleBeforeAfter}
+                disabled={!image}
+                variant="ghost"
+                size="sm"
+                className="h-8 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/80 px-2.5 md:px-3"
+              >
+                <SplitSquareHorizontal size={14} className="md:mr-1.5" />
+                <span className="hidden md:inline text-xs">Compare</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">Compare Before/After</TooltipContent>
+          </Tooltip>
+
+          {/* Export options */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={() => setShowExport(true)}
                 disabled={!image}
                 size="sm"
                 className="h-8 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white font-medium px-2.5 md:px-3 rounded-lg border-0 text-xs"
@@ -215,9 +238,7 @@ export function Navbar({
                 <span className="hidden md:inline">Export</span>
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs md:hidden">
-              Export
-            </TooltipContent>
+            <TooltipContent side="bottom" className="text-xs md:hidden">Export</TooltipContent>
           </Tooltip>
 
           {/* History Toggle */}
@@ -247,5 +268,8 @@ export function Navbar({
         </TooltipProvider>
       </div>
     </header>
+
+    {showExport && <ExportPanel onClose={() => setShowExport(false)} />}
+    </>
   );
 }

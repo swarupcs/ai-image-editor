@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 
 export const ratios = [
-  // Square
   {
     label: "Square (1:1)",
     value: 1,
@@ -18,8 +17,6 @@ export const ratios = [
     icon: Square,
     desc: "Instagram Feed",
   },
-
-  // Landscape / Wide
   {
     label: "Wide (16:9)",
     value: 16 / 9,
@@ -48,8 +45,6 @@ export const ratios = [
     icon: Film,
     desc: "Ultrawide",
   },
-
-  // Portrait / Tall
   {
     label: "Story (9:16)",
     value: 9 / 16,
@@ -109,4 +104,8 @@ export enum ToolType {
   RECTANGLE = "RECTANGLE",
   BRUSH = "BRUSH",
   ERASER = "ERASER",
+  CROP = "CROP",
+  TEXT = "TEXT",
+  COLOR_PICKER = "COLOR_PICKER",
+  SMART_REMOVE = "SMART_REMOVE",
 }

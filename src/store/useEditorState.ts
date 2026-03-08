@@ -1,10 +1,20 @@
 import { ToolType } from '@/lib/constants';
+import { Adjustments, CropRect, TextLayer } from '@/types';
 import { FileUIPart } from 'ai';
+import { nanoid } from 'nanoid';
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 
+const DEFAULT_ADJUSTMENTS: Adjustments = {
+  brightness: 100,
+  contrast: 100,
+  saturation: 100,
+};
+
 type EditorState = {
+  // Core image state
   image: string | null;
+  originalImage: string | null;
   mask: string | null;
   prompt: string;
   history: string[];
@@ -15,6 +25,26 @@ type EditorState = {
   selectedTool: ToolType;
   brushSize: number;
   credits: number | null;
+
+  // Feature: Text Overlay
+  textLayers: TextLayer[];
+
+  // Feature: Adjustments
+  adjustments: Adjustments;
+
+  // Feature: Blend / Composite
+  blendSource: string | null;
+
+  // Feature: Color Picker
+  pickedColor: string | null;
+
+  // Feature: Before/After
+  showBeforeAfter: boolean;
+
+  // Feature: Crop
+  cropRect: CropRect | null;
+
+  // --- Setters ---
   setMask: (mask: string) => void;
   setBrushSize: (size: number) => void;
   setUserFiles: (files: FileUIPart[]) => void;
@@ -24,18 +54,38 @@ type EditorState = {
   redo: () => void;
   toggleHistory: () => void;
   setLoading: (val: boolean) => void;
-  setImage: (ImageData: string) => void;
+  setImage: (imageData: string) => void;
   setPrompt: (prompt: string) => void;
   setCredits: (credits: number) => void;
   fetchCredits: () => Promise<void>;
+  setSelectedTool: (tool: ToolType) => void;
+  setPickedColor: (color: string | null) => void;
+  toggleBeforeAfter: () => void;
+  setCropRect: (rect: CropRect | null) => void;
+  setBlendSource: (img: string | null) => void;
+
+  // --- AI Actions ---
   generateEdit: () => Promise<void>;
   generateFromPrompt: () => Promise<void>;
-  applyFilter: (prompt: string) => void;
-  applyExpansion: (aspectRatio: string) => void;
+  applyFilter: (prompt: string) => Promise<void>;
+  applyExpansion: (aspectRatio: string) => Promise<void>;
   removeBackground: () => Promise<void>;
   enhanceImage: () => Promise<void>;
+  enhanceFace: () => Promise<void>;
+  applyBlend: (blendPrompt: string) => Promise<void>;
   saveCurrentImage: (title?: string) => Promise<string>;
-  setSelectedTool: (tool: ToolType) => void;
+
+  // --- Local (no-credit) Actions ---
+  applyAdjustments: () => void;
+  resetAdjustments: () => void;
+  setAdjustments: (adj: Partial<Adjustments>) => void;
+  applyCrop: () => void;
+
+  // --- Text Layer Actions ---
+  addTextLayer: (text: string, x?: number, y?: number) => void;
+  updateTextLayer: (id: string, updates: Partial<TextLayer>) => void;
+  removeTextLayer: (id: string) => void;
+  flattenTextLayers: () => void;
 };
 
 async function callEditImage(
@@ -55,9 +105,22 @@ async function callEditImage(
   return res.json() as Promise<{ result: string; credits: number }>;
 }
 
+function pushToHistory(
+  state: { history: string[]; historyIndex: number },
+  newImage: string
+) {
+  const base = state.history.slice(0, state.historyIndex + 1);
+  return {
+    image: newImage,
+    history: [...base, newImage],
+    historyIndex: base.length,
+  };
+}
+
 export const useEditorStore = create<EditorState>()(
   devtools((set, get) => ({
     image: null,
+    originalImage: null,
     mask: null,
     prompt: '',
     history: [],
@@ -68,38 +131,58 @@ export const useEditorStore = create<EditorState>()(
     selectedTool: ToolType.MOVE,
     brushSize: 100,
     credits: null,
+    textLayers: [],
+    adjustments: { ...DEFAULT_ADJUSTMENTS },
+    blendSource: null,
+    pickedColor: null,
+    showBeforeAfter: false,
+    cropRect: null,
 
+    // --- Setters ---
     setMask: (mask) => set({ mask }),
     setBrushSize: (size) => set({ brushSize: size }),
     setSelectedTool: (tool) => set({ selectedTool: tool }),
     setUserFiles: (files) => set({ userFiles: files }),
     setCredits: (credits) => set({ credits }),
+    setPickedColor: (color) => set({ pickedColor: color }),
+    toggleBeforeAfter: () => set((s) => ({ showBeforeAfter: !s.showBeforeAfter })),
+    setCropRect: (rect) => set({ cropRect: rect }),
+    setBlendSource: (img) => set({ blendSource: img }),
+    setAdjustments: (adj) =>
+      set((s) => ({ adjustments: { ...s.adjustments, ...adj } })),
+    resetAdjustments: () => set({ adjustments: { ...DEFAULT_ADJUSTMENTS } }),
     setImage: (imageData) =>
-      set({ image: imageData, history: [imageData], historyIndex: 0 }),
+      set((s) => ({
+        image: imageData,
+        originalImage: s.originalImage ?? imageData,
+        history: [imageData],
+        historyIndex: 0,
+        textLayers: [],
+        cropRect: null,
+        adjustments: { ...DEFAULT_ADJUSTMENTS },
+      })),
     setHistory: (history) => set({ history }),
     setHistoryIndex: (index) => {
       const state = get();
       set({ historyIndex: index, image: state.history[index] });
     },
     undo: () => {
-      const state = get();
-      if (state.historyIndex > 0) {
-        const newIndex = state.historyIndex - 1;
-        set({ image: state.history[newIndex], historyIndex: newIndex });
+      const s = get();
+      if (s.historyIndex > 0) {
+        const i = s.historyIndex - 1;
+        set({ image: s.history[i], historyIndex: i });
       }
     },
     redo: () => {
-      const state = get();
-      if (state.historyIndex < state.history.length - 1) {
-        const newIndex = state.historyIndex + 1;
-        set({ historyIndex: newIndex, image: state.history[newIndex] });
+      const s = get();
+      if (s.historyIndex < s.history.length - 1) {
+        const i = s.historyIndex + 1;
+        set({ image: s.history[i], historyIndex: i });
       }
     },
     toggleHistory: () => {
-      const state = get();
-      if (state.history.length) {
-        set({ showHistory: !state.showHistory });
-      }
+      const s = get();
+      if (s.history.length) set({ showHistory: !s.showHistory });
     },
     setLoading: (val) => set({ isLoading: val }),
     setPrompt: (prompt) => set({ prompt }),
@@ -111,49 +194,32 @@ export const useEditorStore = create<EditorState>()(
           const data = await res.json();
           set({ credits: data.credits });
         }
-      } catch {
-        // silently fail
-      }
+      } catch { /* silent */ }
     },
 
+    // --- AI Actions ---
     generateEdit: async () => {
       const state = get();
       set({ isLoading: true });
-
       const finalPrompt = `
     TASK: Professional Image In-painting / Generative Fill.
     ROLE: Expert Photo Retoucher.
-
     INPUT DATA EXPLANATION:
-    - You have received a primary image and a corresponding mask image.
-    - The mask defines the precise editing region.
-    - WHITE pixels in the mask indicate the area where you must apply the user's instruction.
-    - BLACK pixels in the mask must remain exactly as they are in the original image.
-
-    USER GOAL:
-    "${state.prompt}"
-
-    EXECUTION GUIDELINES (CRITICAL):
-    1. IF REMOVING/ERASING: If the user asks to "remove", "erase", or "delete" an object, you MUST perform "Background Reconstruction". Analyze the surrounding background (wall, floor, nature) and seamlessly extend it over the masked area to hide the object.
-    2. IF CHANGING/REPLACING: If the user asks to add or change something, generate the new object strictly within the white mask, matching the scene's lighting and perspective.
-    3. SEAMLESS INTEGRATION: The new content generated inside the white masked area must perfectly match the surrounding environment's perspective, lighting direction, shadows, and color grading.
-    4. TEXTURE MATCHING: Replicate the exact film grain, noise level, and sharpness of the original photo to prevent a "pasted-on" look. The transition at the mask boundary must be invisible.
-    5. STRICT ISOLATION: Do not modify any pixels outside the designated white masked area under any circumstances`;
-
+    - WHITE pixels in the mask = area to edit. BLACK pixels = preserve exactly.
+    USER GOAL: "${state.prompt}"
+    EXECUTION GUIDELINES:
+    1. IF REMOVING: Perform Background Reconstruction. Seamlessly extend surrounding background over masked area.
+    2. IF CHANGING: Generate new content strictly within white mask, matching scene lighting and perspective.
+    3. SEAMLESS INTEGRATION: Match surrounding perspective, lighting, shadows, color grading.
+    4. TEXTURE MATCHING: Replicate film grain, noise, sharpness. Transition at mask boundary must be invisible.
+    5. STRICT ISOLATION: Do not modify pixels outside the white masked area.`;
       try {
         const data = await callEditImage(state.image!, finalPrompt, {
           userFiles: state.userFiles,
           maskBase64: state.mask,
         });
-
         if (data.credits !== undefined) set({ credits: data.credits });
-        const clonedHistory = [...state.history, data.result];
-        set({
-          image: data.result,
-          history: clonedHistory,
-          historyIndex: state.history.length,
-          isLoading: false,
-        });
+        set({ ...pushToHistory(get(), data.result), isLoading: false });
       } catch (err) {
         set({ isLoading: false });
         throw err;
@@ -164,24 +230,22 @@ export const useEditorStore = create<EditorState>()(
       const state = get();
       if (!state.prompt.trim()) return;
       set({ isLoading: true });
-
       try {
         const res = await fetch('/api/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ prompt: state.prompt }),
         });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || 'Failed to generate');
-        }
+        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
         const data = await res.json();
         if (data.credits !== undefined) set({ credits: data.credits });
         set({
           image: data.result,
+          originalImage: data.result,
           history: [data.result],
           historyIndex: 0,
           isLoading: false,
+          textLayers: [],
         });
       } catch (err) {
         set({ isLoading: false });
@@ -192,24 +256,14 @@ export const useEditorStore = create<EditorState>()(
     applyFilter: async (prompt) => {
       const state = get();
       set({ isLoading: true });
-
-      const finalPrompt = `
-        ${prompt}
+      const finalPrompt = `${prompt}
         TECHNICAL CONSTRAINTS:
-        1. STRICTLY PRESERVE COMPOSITION: Do not change the subject's pose, the camera angle, or the placement of objects.
-        2. OUTPUT FORMAT: This is a style transfer. Keep the underlying structure of the image identical to the original, only changing the texture, lighting, and colors to match the requested style.
-      `;
-
+        1. STRICTLY PRESERVE COMPOSITION: Do not change pose, camera angle, or object placement.
+        2. Style transfer only — keep structure identical, only change texture/lighting/colors.`;
       try {
         const data = await callEditImage(state.image!, finalPrompt);
         if (data.credits !== undefined) set({ credits: data.credits });
-        const clonedHistory = [...state.history, data.result];
-        set({
-          image: data.result,
-          history: clonedHistory,
-          historyIndex: state.history.length,
-          isLoading: false,
-        });
+        set({ ...pushToHistory(get(), data.result), isLoading: false });
       } catch (err) {
         set({ isLoading: false });
         throw err;
@@ -219,28 +273,14 @@ export const useEditorStore = create<EditorState>()(
     applyExpansion: async (aspectRatio) => {
       const state = get();
       if (!state.image) return;
-
-      const baseInstruction = `High-fidelity outpainting. Analyze the visual context of the original image and seamlessly extend the scenery into the empty areas. Ensure the person's face and features remain completely unchanged`;
-      const technicalConstraint = `Strictly maintain the continuity of existing lines, horizon, textures, lighting, and perspective. The transition must be invisible. Do not alter the style or content of the original center image`;
-      const userContext = state.prompt
-        ? `Additional context/subject for extension: ${state.prompt}`
-        : '';
-      const finalPrompt = `${baseInstruction}\n${technicalConstraint}\n${userContext}`;
-
+      const finalPrompt = `High-fidelity outpainting. Seamlessly extend the scenery into empty areas. Person's face and features remain completely unchanged.
+        Maintain continuity of lines, horizon, textures, lighting, perspective. Transition must be invisible.
+        ${state.prompt ? `Additional context: ${state.prompt}` : ''}`;
       set({ isLoading: true });
-
       try {
-        const data = await callEditImage(state.image, finalPrompt, {
-          aspectRatio,
-        });
+        const data = await callEditImage(state.image, finalPrompt, { aspectRatio });
         if (data.credits !== undefined) set({ credits: data.credits });
-        const clonedHistory = [...state.history, data.result];
-        set({
-          image: data.result,
-          history: clonedHistory,
-          historyIndex: state.history.length,
-          isLoading: false,
-        });
+        set({ ...pushToHistory(get(), data.result), isLoading: false });
       } catch (err) {
         set({ isLoading: false });
         throw err;
@@ -251,19 +291,11 @@ export const useEditorStore = create<EditorState>()(
       const state = get();
       if (!state.image) return;
       set({ isLoading: true });
-
-      const prompt = `Remove the background from this image completely. Replace the background with a clean solid white background. Keep only the main subject perfectly intact with clean, precise edges. Do not alter the subject in any way.`;
-
+      const prompt = `Remove the background from this image completely. Replace with clean solid white background. Keep only the main subject perfectly intact with clean, precise edges.`;
       try {
         const data = await callEditImage(state.image, prompt);
         if (data.credits !== undefined) set({ credits: data.credits });
-        const clonedHistory = [...state.history, data.result];
-        set({
-          image: data.result,
-          history: clonedHistory,
-          historyIndex: state.history.length,
-          isLoading: false,
-        });
+        set({ ...pushToHistory(get(), data.result), isLoading: false });
       } catch (err) {
         set({ isLoading: false });
         throw err;
@@ -274,19 +306,43 @@ export const useEditorStore = create<EditorState>()(
       const state = get();
       if (!state.image) return;
       set({ isLoading: true });
-
-      const prompt = `Enhance and upscale this image: improve overall sharpness, clarity, and fine detail. Reconstruct high-frequency texture details to increase apparent resolution. Remove noise, compression artifacts, and blur. Improve color vibrancy and dynamic range while maintaining a natural look. Output a high-quality, crisp version of the input image with no compositional changes.`;
-
+      const prompt = `Enhance and upscale this image: improve sharpness, clarity, fine detail. Reconstruct high-frequency textures. Remove noise, compression artifacts, blur. Improve color vibrancy and dynamic range while maintaining natural look. No compositional changes.`;
       try {
         const data = await callEditImage(state.image, prompt);
         if (data.credits !== undefined) set({ credits: data.credits });
-        const clonedHistory = [...state.history, data.result];
-        set({
-          image: data.result,
-          history: clonedHistory,
-          historyIndex: state.history.length,
-          isLoading: false,
+        set({ ...pushToHistory(get(), data.result), isLoading: false });
+      } catch (err) {
+        set({ isLoading: false });
+        throw err;
+      }
+    },
+
+    enhanceFace: async () => {
+      const state = get();
+      if (!state.image) return;
+      set({ isLoading: true });
+      const prompt = `Enhance the face(s) in this portrait photo: smooth skin texture while keeping natural pores, reduce blemishes, brighten and sharpen eyes, enhance eyelashes, slightly whiten teeth if visible, reduce under-eye shadows, improve overall skin tone evenness. Keep all facial features, expressions, and identity exactly the same. Do not alter background, hair, or clothing.`;
+      try {
+        const data = await callEditImage(state.image, prompt);
+        if (data.credits !== undefined) set({ credits: data.credits });
+        set({ ...pushToHistory(get(), data.result), isLoading: false });
+      } catch (err) {
+        set({ isLoading: false });
+        throw err;
+      }
+    },
+
+    applyBlend: async (blendPrompt) => {
+      const state = get();
+      if (!state.image || !state.blendSource) return;
+      set({ isLoading: true });
+      const prompt = blendPrompt || `Seamlessly blend and composite these two images together. Merge subjects naturally with matching lighting, perspective and color grading. The result should look like a single cohesive photograph.`;
+      try {
+        const data = await callEditImage(state.image, prompt, {
+          userFiles: [{ type: 'file', url: state.blendSource, mediaType: 'image/png', filename: 'blend-source.png' }],
         });
+        if (data.credits !== undefined) set({ credits: data.credits });
+        set({ ...pushToHistory(get(), data.result), isLoading: false, blendSource: null });
       } catch (err) {
         set({ isLoading: false });
         throw err;
@@ -296,7 +352,6 @@ export const useEditorStore = create<EditorState>()(
     saveCurrentImage: async (title) => {
       const state = get();
       if (!state.image) throw new Error('No image to save');
-
       const res = await fetch('/api/images', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -306,10 +361,112 @@ export const useEditorStore = create<EditorState>()(
           title: title || state.prompt?.slice(0, 80) || undefined,
         }),
       });
-
       if (!res.ok) throw new Error('Failed to save image');
-      const data = await res.json();
-      return data.id as string;
+      return (await res.json()).id as string;
+    },
+
+    // --- Local (no-credit) Actions ---
+    applyAdjustments: () => {
+      const state = get();
+      if (!state.image) return;
+      const { brightness, contrast, saturation } = state.adjustments;
+      if (brightness === 100 && contrast === 100 && saturation === 100) return;
+
+      const img = new window.Image();
+      img.src = state.image;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d')!;
+        ctx.filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%)`;
+        ctx.drawImage(img, 0, 0);
+        const newImg = canvas.toDataURL('image/png');
+        set({
+          ...pushToHistory(get(), newImg),
+          adjustments: { ...DEFAULT_ADJUSTMENTS },
+        });
+      };
+    },
+
+    applyCrop: () => {
+      const state = get();
+      if (!state.image || !state.cropRect) return;
+      const { x, y, width, height } = state.cropRect;
+      if (width <= 0 || height <= 0) return;
+
+      const img = new window.Image();
+      img.src = state.image;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(width);
+        canvas.height = Math.round(height);
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, Math.round(x), Math.round(y), Math.round(width), Math.round(height), 0, 0, Math.round(width), Math.round(height));
+        const newImg = canvas.toDataURL('image/png');
+        set({
+          ...pushToHistory(get(), newImg),
+          cropRect: null,
+          selectedTool: ToolType.MOVE,
+        });
+      };
+    },
+
+    // --- Text Layer Actions ---
+    addTextLayer: (text, x = 0.5, y = 0.5) => {
+      set((s) => ({
+        textLayers: [
+          ...s.textLayers,
+          {
+            id: nanoid(),
+            text,
+            x,
+            y,
+            fontSize: 32,
+            color: '#ffffff',
+            fontFamily: 'Inter, sans-serif',
+          },
+        ],
+      }));
+    },
+
+    updateTextLayer: (id, updates) => {
+      set((s) => ({
+        textLayers: s.textLayers.map((l) => (l.id === id ? { ...l, ...updates } : l)),
+      }));
+    },
+
+    removeTextLayer: (id) => {
+      set((s) => ({ textLayers: s.textLayers.filter((l) => l.id !== id) }));
+    },
+
+    flattenTextLayers: () => {
+      const state = get();
+      if (!state.image || state.textLayers.length === 0) return;
+
+      const img = new window.Image();
+      img.src = state.image;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0);
+
+        for (const layer of state.textLayers) {
+          ctx.save();
+          ctx.font = `bold ${layer.fontSize}px ${layer.fontFamily}`;
+          ctx.fillStyle = layer.color;
+          ctx.textBaseline = 'middle';
+          ctx.shadowColor = 'rgba(0,0,0,0.6)';
+          ctx.shadowBlur = 4;
+          ctx.fillText(layer.text, layer.x * canvas.width, layer.y * canvas.height);
+          ctx.restore();
+        }
+
+        const newImg = canvas.toDataURL('image/png');
+        set({ ...pushToHistory(get(), newImg), textLayers: [] });
+      };
     },
   }))
 );
