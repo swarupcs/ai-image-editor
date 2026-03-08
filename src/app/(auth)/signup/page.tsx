@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -58,7 +57,6 @@ export default function SignUpPage() {
       });
 
       if (result?.error) {
-        // Signup succeeded but auto-login failed, redirect to signin
         router.push("/signin");
       } else {
         router.push("/dashboard");
@@ -72,27 +70,30 @@ export default function SignUpPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="text-center space-y-4">
-        <div className="w-16 h-16 bg-gradient-to-br from-purple-500/20 to-violet-600/20 rounded-2xl border border-purple-500/20 flex items-center justify-center mx-auto overflow-hidden">
-          <Image
-            src="/logo.png"
-            width={64}
-            height={64}
-            alt="ImgGen Logo"
-            className="object-cover p-0.5"
-          />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-zinc-100">Create account</h1>
-          <p className="text-zinc-500 text-sm mt-1">
-            Get started with ImgGen for free
-          </p>
-        </div>
+      <div className="space-y-1">
+        <h1 className="text-2xl font-bold text-zinc-100 tracking-tight">
+          Create an account
+        </h1>
+        <p className="text-zinc-500 text-sm">
+          Get started with ImgGen for free
+        </p>
       </div>
 
-      {/* Form */}
+      {/* OAuth first */}
+      <OAuthButtons />
+
+      {/* Divider */}
+      <div className="flex items-center gap-3">
+        <div className="h-px flex-1 bg-zinc-800" />
+        <span className="text-xs text-zinc-600 shrink-0">
+          or continue with email
+        </span>
+        <div className="h-px flex-1 bg-zinc-800" />
+      </div>
+
+      {/* Credentials form */}
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm rounded-lg px-4 py-3">
@@ -162,7 +163,7 @@ export default function SignUpPage() {
         <Button
           type="submit"
           disabled={isLoading}
-          className="w-full h-11 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white font-semibold rounded-xl border-0 mt-2"
+          className="w-full h-11 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white font-semibold rounded-xl border-0"
         >
           {isLoading ? (
             <Loader2 size={18} className="mr-2 animate-spin" />
@@ -172,19 +173,6 @@ export default function SignUpPage() {
           Create Account
         </Button>
       </form>
-
-      {/* Divider */}
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-zinc-800" />
-        </div>
-        <div className="relative flex justify-center text-xs">
-          <span className="bg-zinc-950 px-3 text-zinc-500">or continue with</span>
-        </div>
-      </div>
-
-      {/* OAuth */}
-      <OAuthButtons />
 
       {/* Footer */}
       <p className="text-center text-sm text-zinc-500">
