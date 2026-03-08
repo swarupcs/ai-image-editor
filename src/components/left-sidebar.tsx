@@ -30,6 +30,8 @@ import {
   Sparkle,
   Wind,
   Palette,
+  PenLine,
+  ImagePlus,
 } from "lucide-react";
 
 import { Slider } from "@/components/ui/slider";
@@ -73,6 +75,7 @@ export const LeftSidebar = () => {
     setBlendSource,
     applyBlend,
     pickedColor,
+    recentColors,
     canvasEffects,
     setCanvasEffect,
     applyCanvasEffects,
@@ -82,12 +85,16 @@ export const LeftSidebar = () => {
     rotateLeft,
     rotateRight,
     recolorArea,
+    penColor,
+    setPenColor,
+    replaceBackground,
   } = useEditorStore();
 
   const blendInputRef = useRef<HTMLInputElement>(null);
   const [newText, setNewText] = useState("Your Text");
   const [blendPrompt, setBlendPrompt] = useState("");
   const [recolorTarget, setRecolorTarget] = useState("#ff0000");
+  const [bgScene, setBgScene] = useState("");
 
   const handleBlendUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -167,6 +174,12 @@ export const LeftSidebar = () => {
                 icon={<Wand2 size={16} />}
                 label="Remove"
               />
+              <ToolButton
+                active={selectedTool === ToolType.PEN}
+                onClick={() => setSelectedTool(ToolType.PEN)}
+                icon={<PenLine size={16} />}
+                label="Draw"
+              />
             </div>
 
             {/* Brush Size */}
@@ -189,16 +202,50 @@ export const LeftSidebar = () => {
               />
             </div>
 
-            {/* Color Picker display */}
-            {selectedTool === ToolType.COLOR_PICKER && (
+            {/* Pen color when PEN tool is active */}
+            {selectedTool === ToolType.PEN && (
               <div className="flex items-center gap-2 px-1 pt-1">
-                <div
-                  className="w-5 h-5 rounded border border-zinc-700 shrink-0"
-                  style={{ background: pickedColor ?? "transparent" }}
+                <input
+                  type="color"
+                  value={penColor}
+                  onChange={(e) => setPenColor(e.target.value)}
+                  className="w-7 h-7 rounded-lg border border-zinc-700 bg-zinc-800 cursor-pointer p-0.5 shrink-0"
                 />
-                <span className="text-xs font-mono text-zinc-400">
-                  {pickedColor ?? "Click image to pick"}
-                </span>
+                <span className="text-[10px] font-mono text-zinc-400">{penColor}</span>
+              </div>
+            )}
+
+            {/* Color Picker display + recent colors */}
+            {selectedTool === ToolType.COLOR_PICKER && (
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center gap-2 px-1">
+                  <div
+                    className="w-5 h-5 rounded border border-zinc-700 shrink-0"
+                    style={{ background: pickedColor ?? "transparent" }}
+                  />
+                  <span className="text-xs font-mono text-zinc-400">
+                    {pickedColor ?? "Click image to pick"}
+                  </span>
+                </div>
+                {recentColors.length > 0 && (
+                  <div className="space-y-1 px-1">
+                    <p className="text-[10px] text-zinc-600">Recent</p>
+                    <div className="flex gap-1 flex-wrap">
+                      {recentColors.map((c) => (
+                        <div
+                          key={c}
+                          title={c}
+                          className="w-5 h-5 rounded border border-zinc-700 cursor-pointer hover:scale-110 transition-transform"
+                          style={{ background: c }}
+                          onClick={() => {
+                            useEditorStore.getState().setPenColor(c);
+                            setSelectedTool(ToolType.PEN);
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -464,6 +511,36 @@ export const LeftSidebar = () => {
                     <GridItem icon={Sparkles} label="AI Enhance" onClick={enhanceImage} disabled={isLoading || !image} />
                     <GridItem icon={Smile} label="Face Enhance" onClick={enhanceFace} disabled={isLoading || !image} />
                   </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* Background Replace */}
+              <AccordionItem value="bg-replace" className="border-zinc-800/30">
+                <AccordionTrigger className="text-zinc-300 hover:text-purple-400 hover:no-underline py-2.5 transition-colors text-sm">
+                  <div className="flex items-center gap-2">
+                    <ImagePlus size={14} className="text-purple-400" />
+                    <span className="text-xs font-medium">Replace Background</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="pt-1 pb-3 space-y-2.5">
+                  <p className="text-[10px] text-zinc-500 px-0.5">
+                    Describe the new background scene.
+                  </p>
+                  <Input
+                    value={bgScene}
+                    onChange={(e) => setBgScene(e.target.value)}
+                    placeholder="e.g. sunset beach, snowy mountains…"
+                    className="h-8 text-xs bg-zinc-800/60 border-zinc-700/50 text-zinc-200 placeholder:text-zinc-600"
+                  />
+                  <Button
+                    onClick={() => replaceBackground(bgScene)}
+                    disabled={isLoading || !image || !bgScene.trim()}
+                    size="sm"
+                    className="w-full h-8 text-xs bg-purple-600 hover:bg-purple-500 border-0"
+                  >
+                    <ImagePlus size={12} className="mr-1.5" />
+                    Replace Background
+                  </Button>
                 </AccordionContent>
               </AccordionItem>
 

@@ -45,12 +45,13 @@ export function Navbar({
     fetchCredits,
     saveCurrentImage,
     toggleBeforeAfter,
+    showShortcutsModal,
+    setShowShortcutsModal,
   } = useEditorStore();
 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showExport, setShowExport] = useState(false);
-  const [showShortcuts, setShowShortcuts] = useState(false);
 
   useEffect(() => {
     fetchCredits();
@@ -271,7 +272,7 @@ export function Navbar({
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => setShowShortcuts(true)}
+                  onClick={() => setShowShortcutsModal(true)}
                   className="h-8 w-8 rounded-lg text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800/80"
                 >
                   <Keyboard size={15} />
@@ -285,7 +286,7 @@ export function Navbar({
     </header>
 
     {showExport && <ExportPanel onClose={() => setShowExport(false)} />}
-    <KeyboardShortcutModal open={showShortcuts} onClose={() => setShowShortcuts(false)} />
+    <KeyboardShortcutModal open={showShortcutsModal} onClose={() => setShowShortcutsModal(false)} />
     </>
   );
 }

@@ -16,6 +16,7 @@ import {
   Images,
   Globe,
   Loader2,
+  BarChart2,
 } from "lucide-react";
 
 type SavedImage = {
@@ -30,6 +31,12 @@ export default function DashboardPage() {
   const [credits, setCredits] = useState<number | null>(null);
   const [recentImages, setRecentImages] = useState<SavedImage[]>([]);
   const [loadingImages, setLoadingImages] = useState(true);
+  const [stats, setStats] = useState<{
+    totalImages: number;
+    publicImages: number;
+    creditsUsed: number;
+    creditsRemaining: number;
+  } | null>(null);
 
   useEffect(() => {
     fetch("/api/credits")
@@ -42,6 +49,11 @@ export default function DashboardPage() {
       .then((d) => setRecentImages(d.images ?? []))
       .catch(() => {})
       .finally(() => setLoadingImages(false));
+
+    fetch("/api/stats")
+      .then((r) => r.json())
+      .then((d) => setStats(d))
+      .catch(() => {});
   }, []);
 
   return (
@@ -136,6 +148,29 @@ export default function DashboardPage() {
             </div>
           </div>
         </Link>
+
+        {/* Usage Stats */}
+        {stats && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <BarChart2 size={14} className="text-zinc-500" />
+              <h3 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">Usage</h3>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: "Images Saved", value: stats.totalImages, color: "text-purple-400" },
+                { label: "Public Images", value: stats.publicImages, color: "text-violet-400" },
+                { label: "Credits Used", value: stats.creditsUsed, color: "text-amber-400" },
+                { label: "Credits Left", value: stats.creditsRemaining, color: stats.creditsRemaining > 5 ? "text-emerald-400" : "text-red-400" },
+              ].map((stat) => (
+                <div key={stat.label} className="p-4 rounded-xl bg-zinc-900/50 border border-zinc-800/50 space-y-1">
+                  <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+                  <p className="text-xs text-zinc-500">{stat.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Nav links: Gallery + Public */}
         <div className="grid grid-cols-2 gap-4">

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthSessionProvider } from "@/components/providers/session-provider";
+import { Toaster } from "sonner";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -36,6 +37,7 @@ export default function RootLayout({
         className={`${inter.variable} ${geistMono.variable} antialiased bg-zinc-950 text-zinc-200`}
       >
         <AuthSessionProvider>{children}</AuthSessionProvider>
+        <Toaster theme="dark" position="bottom-right" richColors />
       </body>
     </html>
   );

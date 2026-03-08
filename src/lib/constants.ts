@@ -108,6 +108,7 @@ export enum ToolType {
   TEXT = "TEXT",
   COLOR_PICKER = "COLOR_PICKER",
   SMART_REMOVE = "SMART_REMOVE",
+  PEN = "PEN",
 }
 
 export const PROMPT_TEMPLATES = [

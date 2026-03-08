@@ -21,6 +21,7 @@ import {
   Palette,
   Zap,
   Loader2,
+  Square,
 } from "lucide-react";
 
 export default function EditorPage() {
@@ -38,8 +39,29 @@ export default function EditorPage() {
     credits,
   } = useEditorStore();
   const [isDragging, setIsDragging] = useState(false);
-  const [tab, setTab] = useState<"upload" | "generate">("upload");
+  const [tab, setTab] = useState<"upload" | "generate" | "blank">("upload");
   const [generateError, setGenerateError] = useState("");
+
+  // Blank canvas state
+  const BLANK_SIZES = [
+    { label: "512 × 512", w: 512, h: 512 },
+    { label: "768 × 768", w: 768, h: 768 },
+    { label: "1024 × 1024", w: 1024, h: 1024 },
+    { label: "1280 × 720", w: 1280, h: 720 },
+    { label: "1920 × 1080", w: 1920, h: 1080 },
+  ];
+  const [blankSize, setBlankSize] = useState(BLANK_SIZES[0]);
+  const [blankBg, setBlankBg] = useState("#ffffff");
+
+  const handleCreateBlank = () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = blankSize.w;
+    canvas.height = blankSize.h;
+    const ctx = canvas.getContext("2d")!;
+    ctx.fillStyle = blankBg;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    setImage(canvas.toDataURL("image/png"));
+  };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -154,25 +176,36 @@ export default function EditorPage() {
                     <div className="flex bg-zinc-900/50 border border-zinc-800 rounded-xl p-1 gap-1">
                       <button
                         onClick={() => setTab("upload")}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 px-2 rounded-lg text-xs font-medium transition-all ${
                           tab === "upload"
                             ? "bg-zinc-800 text-zinc-100"
                             : "text-zinc-500 hover:text-zinc-300"
                         }`}
                       >
-                        <ImagePlus size={15} />
-                        Upload Image
+                        <ImagePlus size={14} />
+                        Upload
                       </button>
                       <button
                         onClick={() => setTab("generate")}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 px-2 rounded-lg text-xs font-medium transition-all ${
                           tab === "generate"
                             ? "bg-zinc-800 text-zinc-100"
                             : "text-zinc-500 hover:text-zinc-300"
                         }`}
                       >
-                        <Sparkles size={15} />
+                        <Sparkles size={14} />
                         Generate
+                      </button>
+                      <button
+                        onClick={() => setTab("blank")}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 px-2 rounded-lg text-xs font-medium transition-all ${
+                          tab === "blank"
+                            ? "bg-zinc-800 text-zinc-100"
+                            : "text-zinc-500 hover:text-zinc-300"
+                        }`}
+                      >
+                        <Square size={14} />
+                        Blank
                       </button>
                     </div>
 
@@ -208,7 +241,7 @@ export default function EditorPage() {
                           or drag and drop an image anywhere
                         </p>
                       </div>
-                    ) : (
+                    ) : tab === "generate" ? (
                       <div className="space-y-4 text-left">
                         <p className="text-zinc-500 text-sm text-center leading-relaxed">
                           Describe the image you want to create and let AI
@@ -245,6 +278,63 @@ export default function EditorPage() {
                             <Sparkles size={18} className="mr-2" />
                           )}
                           {isLoading ? "Generating…" : "Generate Image"}
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <p className="text-zinc-500 text-sm text-center leading-relaxed">
+                          Start with a blank canvas and paint or apply AI edits.
+                        </p>
+                        {/* Size presets */}
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {BLANK_SIZES.map((s) => (
+                            <button
+                              key={s.label}
+                              onClick={() => setBlankSize(s)}
+                              className={`py-2 px-3 rounded-lg text-xs font-medium transition-all border ${
+                                blankSize.label === s.label
+                                  ? "bg-purple-500/15 border-purple-500/40 text-purple-300"
+                                  : "bg-zinc-900/50 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-300"
+                              }`}
+                            >
+                              {s.label}
+                            </button>
+                          ))}
+                        </div>
+                        {/* Background color */}
+                        <div className="flex items-center gap-3">
+                          <span className="text-zinc-500 text-xs flex-1">Background</span>
+                          <div className="flex items-center gap-2">
+                            {["#ffffff", "#000000", "#1a1a2e", "#f8f0e3"].map((c) => (
+                              <button
+                                key={c}
+                                onClick={() => setBlankBg(c)}
+                                className={`w-6 h-6 rounded-md border-2 transition-all ${
+                                  blankBg === c ? "border-purple-400 scale-110" : "border-zinc-700"
+                                }`}
+                                style={{ backgroundColor: c }}
+                              />
+                            ))}
+                            <label className="relative w-6 h-6 rounded-md border-2 border-zinc-700 overflow-hidden cursor-pointer hover:border-zinc-500 transition-all">
+                              <input
+                                type="color"
+                                value={blankBg}
+                                onChange={(e) => setBlankBg(e.target.value)}
+                                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                              />
+                              <div
+                                className="w-full h-full"
+                                style={{ backgroundColor: blankBg }}
+                              />
+                            </label>
+                          </div>
+                        </div>
+                        <Button
+                          onClick={handleCreateBlank}
+                          className="w-full h-12 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white font-semibold rounded-xl transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-500/25 border-0"
+                        >
+                          <Square size={18} className="mr-2" />
+                          Create Canvas
                         </Button>
                       </div>
                     )}

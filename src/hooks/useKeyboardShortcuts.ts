@@ -15,7 +15,7 @@ const TOOL_KEYS: Record<string, ToolType> = {
 };
 
 export function useKeyboardShortcuts() {
-  const { setSelectedTool, setBrushSize, undo, redo } = useEditorStore();
+  const { setSelectedTool, setBrushSize, undo, redo, setShowShortcutsModal } = useEditorStore();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -27,6 +27,13 @@ export function useKeyboardShortcuts() {
         target.isContentEditable
       )
         return;
+
+      // ? key opens shortcuts modal
+      if (e.key === "?") {
+        e.preventDefault();
+        setShowShortcutsModal(true);
+        return;
+      }
 
       // Skip Space (handled inside image-editor for panning)
       if (e.code === "Space") return;
@@ -71,5 +78,5 @@ export function useKeyboardShortcuts() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [setSelectedTool, setBrushSize, undo, redo]);
+  }, [setSelectedTool, setBrushSize, undo, redo, setShowShortcutsModal]);
 }

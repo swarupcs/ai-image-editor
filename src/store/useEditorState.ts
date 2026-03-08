@@ -4,6 +4,7 @@ import { FileUIPart } from 'ai';
 import { nanoid } from 'nanoid';
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
+import { toast } from 'sonner';
 
 const DEFAULT_ADJUSTMENTS: Adjustments = {
   brightness: 100,
@@ -101,6 +102,22 @@ type EditorState = {
 
   // --- Phase 2: AI Recolor ---
   recolorArea: (targetColor: string) => Promise<void>;
+
+  // --- Phase 3: Drawing / Pen ---
+  penColor: string;
+  setPenColor: (color: string) => void;
+  commitCanvas: (imageData: string) => void;
+
+  // --- Phase 3: Recent Colors ---
+  recentColors: string[];
+  addRecentColor: (color: string) => void;
+
+  // --- Phase 3: Shortcuts Modal ---
+  showShortcutsModal: boolean;
+  setShowShortcutsModal: (show: boolean) => void;
+
+  // --- Phase 3: AI Background Replacement ---
+  replaceBackground: (scene: string) => Promise<void>;
 };
 
 async function callEditImage(
@@ -153,6 +170,9 @@ export const useEditorStore = create<EditorState>()(
     showBeforeAfter: false,
     cropRect: null,
     canvasEffects: { blur: 0, vignette: 0, grain: 0 },
+    penColor: '#e74c3c',
+    recentColors: [],
+    showShortcutsModal: false,
 
     // --- Setters ---
     setMask: (mask) => set({ mask }),
@@ -160,7 +180,14 @@ export const useEditorStore = create<EditorState>()(
     setSelectedTool: (tool) => set({ selectedTool: tool }),
     setUserFiles: (files) => set({ userFiles: files }),
     setCredits: (credits) => set({ credits }),
-    setPickedColor: (color) => set({ pickedColor: color }),
+    setPickedColor: (color) => {
+      set({ pickedColor: color });
+      if (color) {
+        set((s) => ({
+          recentColors: [color, ...s.recentColors.filter((c) => c !== color)].slice(0, 8),
+        }));
+      }
+    },
     toggleBeforeAfter: () => set((s) => ({ showBeforeAfter: !s.showBeforeAfter })),
     setCropRect: (rect) => set({ cropRect: rect }),
     setBlendSource: (img) => set({ blendSource: img }),
@@ -237,8 +264,10 @@ export const useEditorStore = create<EditorState>()(
         });
         if (data.credits !== undefined) set({ credits: data.credits });
         set({ ...pushToHistory(get(), data.result), isLoading: false });
+        toast.success('Edit applied!');
       } catch (err) {
         set({ isLoading: false });
+        toast.error(err instanceof Error ? err.message : 'Edit failed');
         throw err;
       }
     },
@@ -264,8 +293,10 @@ export const useEditorStore = create<EditorState>()(
           isLoading: false,
           textLayers: [],
         });
+        toast.success('Image generated!');
       } catch (err) {
         set({ isLoading: false });
+        toast.error(err instanceof Error ? err.message : 'Generation failed');
         throw err;
       }
     },
@@ -281,8 +312,10 @@ export const useEditorStore = create<EditorState>()(
         const data = await callEditImage(state.image!, finalPrompt);
         if (data.credits !== undefined) set({ credits: data.credits });
         set({ ...pushToHistory(get(), data.result), isLoading: false });
+        toast.success('Filter applied!');
       } catch (err) {
         set({ isLoading: false });
+        toast.error(err instanceof Error ? err.message : 'Filter failed');
         throw err;
       }
     },
@@ -298,8 +331,10 @@ export const useEditorStore = create<EditorState>()(
         const data = await callEditImage(state.image, finalPrompt, { aspectRatio });
         if (data.credits !== undefined) set({ credits: data.credits });
         set({ ...pushToHistory(get(), data.result), isLoading: false });
+        toast.success('Canvas expanded!');
       } catch (err) {
         set({ isLoading: false });
+        toast.error(err instanceof Error ? err.message : 'Expansion failed');
         throw err;
       }
     },
@@ -313,8 +348,10 @@ export const useEditorStore = create<EditorState>()(
         const data = await callEditImage(state.image, prompt);
         if (data.credits !== undefined) set({ credits: data.credits });
         set({ ...pushToHistory(get(), data.result), isLoading: false });
+        toast.success('Background removed!');
       } catch (err) {
         set({ isLoading: false });
+        toast.error(err instanceof Error ? err.message : 'Failed');
         throw err;
       }
     },
@@ -328,8 +365,10 @@ export const useEditorStore = create<EditorState>()(
         const data = await callEditImage(state.image, prompt);
         if (data.credits !== undefined) set({ credits: data.credits });
         set({ ...pushToHistory(get(), data.result), isLoading: false });
+        toast.success('Image enhanced!');
       } catch (err) {
         set({ isLoading: false });
+        toast.error(err instanceof Error ? err.message : 'Enhancement failed');
         throw err;
       }
     },
@@ -343,8 +382,10 @@ export const useEditorStore = create<EditorState>()(
         const data = await callEditImage(state.image, prompt);
         if (data.credits !== undefined) set({ credits: data.credits });
         set({ ...pushToHistory(get(), data.result), isLoading: false });
+        toast.success('Face enhanced!');
       } catch (err) {
         set({ isLoading: false });
+        toast.error(err instanceof Error ? err.message : 'Face enhancement failed');
         throw err;
       }
     },
@@ -360,8 +401,10 @@ export const useEditorStore = create<EditorState>()(
         });
         if (data.credits !== undefined) set({ credits: data.credits });
         set({ ...pushToHistory(get(), data.result), isLoading: false, blendSource: null });
+        toast.success('Blend applied!');
       } catch (err) {
         set({ isLoading: false });
+        toast.error(err instanceof Error ? err.message : 'Blend failed');
         throw err;
       }
     },
@@ -665,8 +708,45 @@ export const useEditorStore = create<EditorState>()(
         });
         if (data.credits !== undefined) set({ credits: data.credits });
         set({ ...pushToHistory(get(), data.result), isLoading: false });
+        toast.success('Recolor applied!');
       } catch (err) {
         set({ isLoading: false });
+        toast.error(err instanceof Error ? err.message : 'Recolor failed');
+        throw err;
+      }
+    },
+
+    // --- Phase 3: Drawing / Pen ---
+    setPenColor: (color) => set({ penColor: color }),
+
+    commitCanvas: (imageData) => {
+      set({ ...pushToHistory(get(), imageData) });
+    },
+
+    // --- Phase 3: Recent Colors ---
+    addRecentColor: (color) => {
+      set((s) => ({
+        recentColors: [color, ...s.recentColors.filter((c) => c !== color)].slice(0, 8),
+      }));
+    },
+
+    // --- Phase 3: Shortcuts Modal ---
+    setShowShortcutsModal: (show) => set({ showShortcutsModal: show }),
+
+    // --- Phase 3: AI Background Replacement ---
+    replaceBackground: async (scene) => {
+      const state = get();
+      if (!state.image) return;
+      set({ isLoading: true });
+      const prompt = `Replace the background of this image with: ${scene}. Keep the main subject (person/object) completely unchanged with precise edges. The new background should seamlessly integrate with the subject's existing lighting and shadows. Photorealistic result.`;
+      try {
+        const data = await callEditImage(state.image, prompt);
+        if (data.credits !== undefined) set({ credits: data.credits });
+        set({ ...pushToHistory(get(), data.result), isLoading: false });
+        toast.success('Background replaced!');
+      } catch (err) {
+        set({ isLoading: false });
+        toast.error(err instanceof Error ? err.message : 'Background replacement failed');
         throw err;
       }
     },

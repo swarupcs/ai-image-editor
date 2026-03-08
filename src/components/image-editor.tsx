@@ -21,6 +21,7 @@ const ImageEditor = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const penCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const startPosRef = useRef<Point | null>(null);
   const isDrawingRef = useRef(false);
@@ -54,6 +55,8 @@ const ImageEditor = () => {
     setPrompt,
     generateEdit,
     isLoading,
+    penColor,
+    commitCanvas,
   } = useEditorStore();
 
   // ── Draw composite (image + overlay mask) ──────────────────────────────
@@ -65,6 +68,11 @@ const ImageEditor = () => {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(imgRef.current, 0, 0);
+
+    // Draw pen strokes on top of image (before mask overlay)
+    if (penCanvasRef.current) {
+      ctx.drawImage(penCanvasRef.current, 0, 0);
+    }
 
     const overlay = overlayCanvasRef.current;
     const mask = maskCanvasRef.current;
@@ -110,6 +118,10 @@ const ImageEditor = () => {
       overlayCanvasRef.current = document.createElement("canvas");
       overlayCanvasRef.current.width = img.width;
       overlayCanvasRef.current.height = img.height;
+
+      penCanvasRef.current = document.createElement("canvas");
+      penCanvasRef.current.width = img.naturalWidth;
+      penCanvasRef.current.height = img.naturalHeight;
 
       setCanvasDimensions({ w: img.naturalWidth, h: img.naturalHeight });
       draw();
@@ -253,6 +265,17 @@ const ImageEditor = () => {
     if (tool === ToolType.BRUSH || tool === ToolType.ERASER) {
       updateMask(pos, pos);
     }
+
+    // Pen: start stroke on penCanvas
+    if (tool === ToolType.PEN && penCanvasRef.current) {
+      const pc = penCanvasRef.current.getContext("2d")!;
+      pc.lineWidth = brushSize;
+      pc.lineCap = "round";
+      pc.lineJoin = "round";
+      pc.strokeStyle = penColor;
+      pc.beginPath();
+      pc.moveTo(pos.x, pos.y);
+    }
   };
 
   // ── Pointer Move ──────────────────────────────────────────────────────
@@ -271,7 +294,15 @@ const ImageEditor = () => {
 
     const pos = getPointerPos(e);
 
-    if (selectedTool === ToolType.BRUSH || selectedTool === ToolType.ERASER) {
+    if (selectedTool === ToolType.PEN && penCanvasRef.current) {
+      const pc = penCanvasRef.current.getContext("2d")!;
+      pc.lineTo(pos.x, pos.y);
+      pc.stroke();
+      pc.beginPath();
+      pc.moveTo(pos.x, pos.y);
+      startPosRef.current = pos;
+      draw();
+    } else if (selectedTool === ToolType.BRUSH || selectedTool === ToolType.ERASER) {
       updateMask(startPosRef.current, pos);
       startPosRef.current = pos;
       draw();
@@ -299,6 +330,27 @@ const ImageEditor = () => {
     }
 
     const tool = selectedTool;
+
+    // Pen: bake strokes into the image
+    if (tool === ToolType.PEN) {
+      const penCanvas = penCanvasRef.current;
+      if (!penCanvas || !canvasRef.current || !imgRef.current) return;
+      isDrawingRef.current = false;
+
+      const offscreen = document.createElement("canvas");
+      offscreen.width = imgRef.current.naturalWidth;
+      offscreen.height = imgRef.current.naturalHeight;
+      const oc = offscreen.getContext("2d")!;
+      oc.drawImage(imgRef.current, 0, 0);
+      oc.drawImage(penCanvas, 0, 0);
+      const dataUrl = offscreen.toDataURL("image/png");
+      commitCanvas(dataUrl);
+
+      // Clear pen canvas
+      const pc = penCanvas.getContext("2d")!;
+      pc.clearRect(0, 0, penCanvas.width, penCanvas.height);
+      return;
+    }
 
     if (tool === ToolType.CROP) {
       setCropDragging(false);
@@ -335,6 +387,7 @@ const ImageEditor = () => {
       case ToolType.COLOR_PICKER: return "crosshair";
       case ToolType.SMART_REMOVE: return `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='${brushSize * 3}' height='${brushSize * 3}'><circle cx='${brushSize * 1.5}' cy='${brushSize * 1.5}' r='${brushSize * 1.5 - 1}' fill='rgba(255,0,0,0.2)' stroke='red' stroke-width='1.5'/></svg>") ${brushSize * 1.5} ${brushSize * 1.5}, crosshair`;
       case ToolType.TEXT: return "text";
+      case ToolType.PEN: return `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='${brushSize}' height='${brushSize}'><circle cx='${brushSize / 2}' cy='${brushSize / 2}' r='${brushSize / 2 - 1}' fill='none' stroke='white' stroke-width='1.5'/></svg>") ${brushSize / 2} ${brushSize / 2}, crosshair`;
       default: return "default";
     }
   };

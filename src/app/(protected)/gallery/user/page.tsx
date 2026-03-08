@@ -19,6 +19,8 @@ import {
   ImageIcon,
   Link2,
   Check,
+  Download,
+  Search,
 } from "lucide-react";
 
 type SavedImage = {
@@ -75,6 +77,7 @@ export default function GalleryPage() {
   const [showNewCollection, setShowNewCollection] = useState(false);
   const [addingToCollection, setAddingToCollection] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -162,6 +165,22 @@ export default function GalleryPage() {
     setTimeout(() => setCopiedLink(null), 2000);
   };
 
+  const handleDownload = (img: SavedImage) => {
+    const link = document.createElement("a");
+    link.href = img.imageData;
+    link.download = `imggen-${img.id}.png`;
+    link.click();
+  };
+
+  const filteredImages = images.filter((img) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      img.title?.toLowerCase().includes(q) ||
+      img.prompt?.toLowerCase().includes(q)
+    );
+  });
+
   const handleDeleteCollection = async (id: string) => {
     await fetch(`/api/collections/${id}`, { method: "DELETE" });
     setCollections((prev) => prev.filter((c) => c.id !== id));
@@ -211,6 +230,20 @@ export default function GalleryPage() {
           ))}
         </div>
 
+        {/* Search bar (images tab only) */}
+        {activeTab === "images" && !loading && images.length > 0 && (
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search by title or prompt…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full sm:w-72 h-9 bg-zinc-900/50 border border-zinc-800 text-zinc-100 placeholder:text-zinc-600 rounded-xl pl-8 pr-3 text-sm focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/20"
+            />
+          </div>
+        )}
+
         {loading ? (
           <div className="flex items-center justify-center py-24">
             <Loader2 size={24} className="animate-spin text-zinc-600" />
@@ -226,9 +259,13 @@ export default function GalleryPage() {
                 </Button>
               </Link>
             </div>
+          ) : filteredImages.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-zinc-500 text-sm">No images match &ldquo;{searchQuery}&rdquo;</p>
+            </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-              {images.map((img) => (
+              {filteredImages.map((img) => (
                 <div
                   key={img.id}
                   className="group relative rounded-xl overflow-hidden border border-zinc-800/50 bg-zinc-900/40"
@@ -257,6 +294,13 @@ export default function GalleryPage() {
                           {img.isPublic ? "Public" : "Private"}
                         </button>
                         <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleDownload(img)}
+                            title="Download image"
+                            className="p-1.5 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700 transition-colors"
+                          >
+                            <Download size={13} />
+                          </button>
                           <button
                             onClick={() => handleCopyLink(img)}
                             title="Copy shareable link"
