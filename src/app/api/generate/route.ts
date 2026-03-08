@@ -3,15 +3,6 @@ import { GoogleGenAI } from "@google/genai";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-function getMimeType(dataUrl: string): string {
-  const match = dataUrl.match(/^data:(image\/[a-zA-Z+]+);base64,/);
-  return match ? match[1] : "image/png";
-}
-
-function cleanBase64Image(dataUrl: string): string {
-  return dataUrl.replace(/^data:(.*);base64,/, "");
-}
-
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -30,43 +21,17 @@ export async function POST(request: Request) {
     );
   }
 
-  const { imageBase64, prompt, userFiles, aspectRatio, maskBase64 } =
-    await request.json();
+  const { prompt, aspectRatio } = await request.json();
+
+  if (!prompt?.trim()) {
+    return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
+  }
 
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-  const parts: object[] = [
-    { text: prompt },
-    {
-      inlineData: {
-        mimeType: getMimeType(imageBase64),
-        data: cleanBase64Image(imageBase64),
-      },
-    },
-  ];
-
-  if (maskBase64) {
-    parts.push({
-      inlineData: {
-        mimeType: "image/png",
-        data: cleanBase64Image(maskBase64),
-      },
-    });
-  }
-
-  if (userFiles && Array.isArray(userFiles) && userFiles.length > 0) {
-    const processedFiles = userFiles.map((file: { url: string }) => ({
-      inlineData: {
-        mimeType: getMimeType(file.url),
-        data: cleanBase64Image(file.url),
-      },
-    }));
-    parts.push(...processedFiles);
-  }
-
   const response = await ai.models.generateContent({
     model: "gemini-3-pro-image-preview",
-    contents: parts,
+    contents: [{ text: prompt }],
     config: {
       imageConfig: { aspectRatio: aspectRatio || undefined },
     },
@@ -76,9 +41,7 @@ export async function POST(request: Request) {
 
   if (content?.parts) {
     for (const part of content.parts) {
-      if (part.text) {
-        console.log(part.text);
-      } else if (part.inlineData) {
+      if (part.inlineData) {
         const updated = await prisma.user.update({
           where: { id: session.user.id },
           data: { credits: { decrement: 1 } },
@@ -93,5 +56,5 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ error: "Failed to generate the image" }, { status: 500 });
+  return NextResponse.json({ error: "Failed to generate image" }, { status: 500 });
 }

@@ -14,11 +14,14 @@ model User {
   emailVerified DateTime?
   password      String?
   image         String?
+  credits       Int       @default(20)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts Account[]
-  sessions Session[]
+  accounts    Account[]
+  sessions    Session[]
+  images      GeneratedImage[]
+  collections Collection[]
 }
 
 model Account {
@@ -55,4 +58,38 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+model GeneratedImage {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String?
+  prompt    String?  @db.Text
+  imageData String   @db.Text
+  isPublic  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  collectionImages CollectionImage[]
+}
+
+model Collection {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime @default(now())
+
+  images CollectionImage[]
+}
+
+model CollectionImage {
+  id           String         @id @default(cuid())
+  collectionId String
+  collection   Collection     @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  imageId      String
+  image        GeneratedImage @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  createdAt    DateTime       @default(now())
+
+  @@unique([collectionId, imageId])
 }

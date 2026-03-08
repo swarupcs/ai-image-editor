@@ -14,6 +14,7 @@ type EditorState = {
   userFiles: FileUIPart[];
   selectedTool: ToolType;
   brushSize: number;
+  credits: number | null;
   setMask: (mask: string) => void;
   setBrushSize: (size: number) => void;
   setUserFiles: (files: FileUIPart[]) => void;
@@ -25,11 +26,34 @@ type EditorState = {
   setLoading: (val: boolean) => void;
   setImage: (ImageData: string) => void;
   setPrompt: (prompt: string) => void;
+  setCredits: (credits: number) => void;
+  fetchCredits: () => Promise<void>;
   generateEdit: () => Promise<void>;
+  generateFromPrompt: () => Promise<void>;
   applyFilter: (prompt: string) => void;
   applyExpansion: (aspectRatio: string) => void;
+  removeBackground: () => Promise<void>;
+  enhanceImage: () => Promise<void>;
+  saveCurrentImage: (title?: string) => Promise<string>;
   setSelectedTool: (tool: ToolType) => void;
 };
+
+async function callEditImage(
+  imageBase64: string,
+  prompt: string,
+  extra?: object
+) {
+  const res = await fetch('/api/edit-image', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ imageBase64, prompt, ...extra }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to generate');
+  }
+  return res.json() as Promise<{ result: string; credits: number }>;
+}
 
 export const useEditorStore = create<EditorState>()(
   devtools((set, get) => ({
@@ -43,66 +67,55 @@ export const useEditorStore = create<EditorState>()(
     userFiles: [],
     selectedTool: ToolType.MOVE,
     brushSize: 100,
-    setMask: (mask: string) => {
-      set({ mask });
-    },
-    setBrushSize: (size: number) => {
-      set({ brushSize: size });
-    },
-    setSelectedTool: (tool: ToolType) => {
-      set({ selectedTool: tool });
-    },
-    setUserFiles: (files: FileUIPart[]) => {
-      set({ userFiles: files });
-    },
-    setImage: (imageData: string) =>
-      set(() => ({
-        image: imageData,
-        history: [imageData],
-      })),
+    credits: null,
+
+    setMask: (mask) => set({ mask }),
+    setBrushSize: (size) => set({ brushSize: size }),
+    setSelectedTool: (tool) => set({ selectedTool: tool }),
+    setUserFiles: (files) => set({ userFiles: files }),
+    setCredits: (credits) => set({ credits }),
+    setImage: (imageData) =>
+      set({ image: imageData, history: [imageData], historyIndex: 0 }),
     setHistory: (history) => set({ history }),
-    setHistoryIndex: (index: number) => {
+    setHistoryIndex: (index) => {
       const state = get();
-      return set({
-        historyIndex: index,
-        image: state.history[index],
-      });
+      set({ historyIndex: index, image: state.history[index] });
     },
     undo: () => {
       const state = get();
-
       if (state.historyIndex > 0) {
-        const newIndex = state.historyIndex - 1; // 0 -> -1
-        set({
-          image: state.history[newIndex],
-          historyIndex: newIndex,
-        });
+        const newIndex = state.historyIndex - 1;
+        set({ image: state.history[newIndex], historyIndex: newIndex });
       }
     },
     redo: () => {
       const state = get();
-
       if (state.historyIndex < state.history.length - 1) {
-        // 4 -> 3
         const newIndex = state.historyIndex + 1;
-
-        set({
-          historyIndex: newIndex,
-          image: state.history[newIndex],
-        });
+        set({ historyIndex: newIndex, image: state.history[newIndex] });
       }
     },
     toggleHistory: () => {
       const state = get();
       if (state.history.length) {
-        set({
-          showHistory: !state.showHistory,
-        });
+        set({ showHistory: !state.showHistory });
       }
     },
-    setLoading: (val: boolean) => {
-      set({ isLoading: val });
+    setLoading: (val) => set({ isLoading: val }),
+    setPrompt: (prompt) => set({ prompt }),
+
+    fetchCredits: async () => {
+      try {
+        const res = await fetch('/api/credits');
+        if (res.ok) {
+          const data = await res.json();
+          set({ credits: data.credits });
+        }
+      } catch {
+        // silently fail
+      }
     },
+
     generateEdit: async () => {
       const state = get();
       set({ isLoading: true });
@@ -127,39 +140,58 @@ export const useEditorStore = create<EditorState>()(
     4. TEXTURE MATCHING: Replicate the exact film grain, noise level, and sharpness of the original photo to prevent a "pasted-on" look. The transition at the mask boundary must be invisible.
     5. STRICT ISOLATION: Do not modify any pixels outside the designated white masked area under any circumstances`;
 
-      // todo: try,catch, -> use finally block to set loading false
-      const response = await fetch('/api/edit-image', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          imageBase64: state.image,
-          prompt: finalPrompt,
+      try {
+        const data = await callEditImage(state.image!, finalPrompt, {
           userFiles: state.userFiles,
           maskBase64: state.mask,
-        }),
-      });
+        });
 
-      if (!response.ok) {
+        if (data.credits !== undefined) set({ credits: data.credits });
+        const clonedHistory = [...state.history, data.result];
+        set({
+          image: data.result,
+          history: clonedHistory,
+          historyIndex: state.history.length,
+          isLoading: false,
+        });
+      } catch (err) {
         set({ isLoading: false });
-        throw new Error('failed to generate.');
+        throw err;
       }
-
-      const data = await response.json();
-
-      const clonedHistory = [...state.history, data.result];
-
-      set(() => ({
-        image: data.result,
-        history: clonedHistory,
-        historyIndex: state.history.length,
-        isLoading: false,
-      }));
     },
-    applyFilter: async (prompt: string) => {
-      // prompt -> image -> send to model(server)
+
+    generateFromPrompt: async () => {
       const state = get();
+      if (!state.prompt.trim()) return;
+      set({ isLoading: true });
+
+      try {
+        const res = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: state.prompt }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || 'Failed to generate');
+        }
+        const data = await res.json();
+        if (data.credits !== undefined) set({ credits: data.credits });
+        set({
+          image: data.result,
+          history: [data.result],
+          historyIndex: 0,
+          isLoading: false,
+        });
+      } catch (err) {
+        set({ isLoading: false });
+        throw err;
+      }
+    },
+
+    applyFilter: async (prompt) => {
+      const state = get();
+      set({ isLoading: true });
 
       const finalPrompt = `
         ${prompt}
@@ -168,80 +200,116 @@ export const useEditorStore = create<EditorState>()(
         2. OUTPUT FORMAT: This is a style transfer. Keep the underlying structure of the image identical to the original, only changing the texture, lighting, and colors to match the requested style.
       `;
 
-      set({ isLoading: true });
-
-      const response = await fetch('/api/edit-image', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          imageBase64: state.image,
-          prompt: finalPrompt,
-        }),
-      });
-
-      if (!response.ok) {
+      try {
+        const data = await callEditImage(state.image!, finalPrompt);
+        if (data.credits !== undefined) set({ credits: data.credits });
+        const clonedHistory = [...state.history, data.result];
+        set({
+          image: data.result,
+          history: clonedHistory,
+          historyIndex: state.history.length,
+          isLoading: false,
+        });
+      } catch (err) {
         set({ isLoading: false });
-        throw new Error('failed to generate.');
+        throw err;
       }
-
-      const data = await response.json();
-      const clonedHistory = [...state.history, data.result];
-
-      set(() => ({
-        image: data.result,
-        history: clonedHistory,
-        historyIndex: state.history.length,
-        isLoading: false,
-      }));
     },
-    applyExpansion: async (aspectRatio: string) => {
+
+    applyExpansion: async (aspectRatio) => {
       const state = get();
       if (!state.image) return;
 
       const baseInstruction = `High-fidelity outpainting. Analyze the visual context of the original image and seamlessly extend the scenery into the empty areas. Ensure the person's face and features remain completely unchanged`;
-
-      const technicalConstraint = `Strictly maintain the continuity of existing lines, horizon, textures, lighting, and perspective. The transition must be invisible. Do not alter the style or content of the original center image `;
-
+      const technicalConstraint = `Strictly maintain the continuity of existing lines, horizon, textures, lighting, and perspective. The transition must be invisible. Do not alter the style or content of the original center image`;
       const userContext = state.prompt
-        ? `Addtional context/subject for extension: ${state.prompt}`
+        ? `Additional context/subject for extension: ${state.prompt}`
         : '';
-
-      const finalPrompt = `
-        ${baseInstruction}
-        ${technicalConstraint}
-        ${userContext}`;
+      const finalPrompt = `${baseInstruction}\n${technicalConstraint}\n${userContext}`;
 
       set({ isLoading: true });
 
-      const response = await fetch('/api/edit-image', {
+      try {
+        const data = await callEditImage(state.image, finalPrompt, {
+          aspectRatio,
+        });
+        if (data.credits !== undefined) set({ credits: data.credits });
+        const clonedHistory = [...state.history, data.result];
+        set({
+          image: data.result,
+          history: clonedHistory,
+          historyIndex: state.history.length,
+          isLoading: false,
+        });
+      } catch (err) {
+        set({ isLoading: false });
+        throw err;
+      }
+    },
+
+    removeBackground: async () => {
+      const state = get();
+      if (!state.image) return;
+      set({ isLoading: true });
+
+      const prompt = `Remove the background from this image completely. Replace the background with a clean solid white background. Keep only the main subject perfectly intact with clean, precise edges. Do not alter the subject in any way.`;
+
+      try {
+        const data = await callEditImage(state.image, prompt);
+        if (data.credits !== undefined) set({ credits: data.credits });
+        const clonedHistory = [...state.history, data.result];
+        set({
+          image: data.result,
+          history: clonedHistory,
+          historyIndex: state.history.length,
+          isLoading: false,
+        });
+      } catch (err) {
+        set({ isLoading: false });
+        throw err;
+      }
+    },
+
+    enhanceImage: async () => {
+      const state = get();
+      if (!state.image) return;
+      set({ isLoading: true });
+
+      const prompt = `Enhance and upscale this image: improve overall sharpness, clarity, and fine detail. Reconstruct high-frequency texture details to increase apparent resolution. Remove noise, compression artifacts, and blur. Improve color vibrancy and dynamic range while maintaining a natural look. Output a high-quality, crisp version of the input image with no compositional changes.`;
+
+      try {
+        const data = await callEditImage(state.image, prompt);
+        if (data.credits !== undefined) set({ credits: data.credits });
+        const clonedHistory = [...state.history, data.result];
+        set({
+          image: data.result,
+          history: clonedHistory,
+          historyIndex: state.history.length,
+          isLoading: false,
+        });
+      } catch (err) {
+        set({ isLoading: false });
+        throw err;
+      }
+    },
+
+    saveCurrentImage: async (title) => {
+      const state = get();
+      if (!state.image) throw new Error('No image to save');
+
+      const res = await fetch('/api/images', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          imageBase64: state.image,
-          prompt: finalPrompt,
-          aspectRatio: aspectRatio,
+          imageData: state.image,
+          prompt: state.prompt || undefined,
+          title: title || state.prompt?.slice(0, 80) || undefined,
         }),
       });
 
-      if (!response.ok) {
-        set({ isLoading: false });
-        throw new Error('failed to generate.');
-      }
-
-      const data = await response.json();
-      const clonedHistory = [...state.history, data.result];
-
-      set(() => ({
-        image: data.result,
-        history: clonedHistory,
-        historyIndex: state.history.length,
-        isLoading: false,
-      }));
+      if (!res.ok) throw new Error('Failed to save image');
+      const data = await res.json();
+      return data.id as string;
     },
-    setPrompt: (prompt: string) => set({ prompt }),
-  })),
+  }))
 );

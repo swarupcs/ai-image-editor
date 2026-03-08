@@ -30,10 +30,13 @@ export const LeftSidebar = () => {
     applyFilter,
     isLoading,
     applyExpansion,
+    removeBackground,
+    enhanceImage,
     setSelectedTool,
     selectedTool,
     setBrushSize,
     brushSize,
+    image,
   } = useEditorStore();
 
   return (
@@ -122,15 +125,15 @@ export const LeftSidebar = () => {
                     <GridItem
                       icon={Delete}
                       label={"Remove BG"}
-                      onClick={() => {}}
-                      disabled={true}
+                      onClick={removeBackground}
+                      disabled={isLoading || !image}
                     />
                     <GridItem
                       icon={Sparkles}
                       label={"AI Enhance"}
                       desc={""}
-                      onClick={() => {}}
-                      disabled={true}
+                      onClick={enhanceImage}
+                      disabled={isLoading || !image}
                     />
                   </div>
                 </AccordionContent>

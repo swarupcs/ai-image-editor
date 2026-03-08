@@ -4,19 +4,20 @@ import { NextResponse } from "next/server";
 
 const { auth } = NextAuth(authConfig);
 
-const publicRoutes = ["/signin", "/signup"];
+const authRoutes = ["/signin", "/signup"];
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
   const isAuthenticated = !!req.auth;
 
-  // Allow public routes and API auth routes
-  if (
-    publicRoutes.includes(pathname) ||
-    pathname.startsWith("/api/auth")
-  ) {
-    // Redirect authenticated users away from auth pages
-    if (isAuthenticated && publicRoutes.includes(pathname)) {
+  // Public gallery — always accessible regardless of auth
+  if (pathname === "/gallery" || (pathname.startsWith("/gallery") && !pathname.startsWith("/gallery/user"))) {
+    return NextResponse.next();
+  }
+
+  // Auth pages — redirect authenticated users to dashboard
+  if (authRoutes.includes(pathname) || pathname.startsWith("/api/auth")) {
+    if (isAuthenticated && authRoutes.includes(pathname)) {
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
     return NextResponse.next();

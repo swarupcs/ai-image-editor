@@ -10,21 +10,37 @@ import { RightSidebar } from "@/components/right-sidebar";
 import { useCallback, useRef, useState } from "react";
 import { useEditorStore } from "@/store/useEditorState";
 import ImageEditor from "@/components/image-editor";
-import { ImagePlus, Upload, Sparkles, Wand2, Palette } from "lucide-react";
+import {
+  ImagePlus,
+  Upload,
+  Sparkles,
+  Wand2,
+  Palette,
+  Zap,
+  Loader2,
+} from "lucide-react";
 
-export default function Home() {
+export default function EditorPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { image, setImage, showHistory, isLoading } = useEditorStore();
+  const {
+    image,
+    setImage,
+    showHistory,
+    isLoading,
+    prompt,
+    setPrompt,
+    generateFromPrompt,
+    credits,
+  } = useEditorStore();
   const [isDragging, setIsDragging] = useState(false);
+  const [tab, setTab] = useState<"upload" | "generate">("upload");
+  const [generateError, setGenerateError] = useState("");
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result;
-      setImage(result as string);
-    };
+    reader.onload = () => setImage(reader.result as string);
     reader.readAsDataURL(file);
   };
 
@@ -39,7 +55,7 @@ export default function Home() {
         reader.readAsDataURL(file);
       }
     },
-    [setImage],
+    [setImage]
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -51,6 +67,17 @@ export default function Home() {
     e.preventDefault();
     setIsDragging(false);
   }, []);
+
+  const handleGenerate = async () => {
+    setGenerateError("");
+    try {
+      await generateFromPrompt();
+    } catch (err: unknown) {
+      setGenerateError(
+        err instanceof Error ? err.message : "Failed to generate"
+      );
+    }
+  };
 
   return (
     <>
@@ -107,60 +134,115 @@ export default function Home() {
               {/* MAIN EDITOR SCREEN */}
               <div className="w-full h-full flex items-center justify-center p-6 md:p-10">
                 {!image ? (
-                  <div className="text-center space-y-8 max-w-md z-10">
+                  <div className="text-center space-y-6 max-w-md z-10 w-full">
                     {/* Logo */}
-                    <div className="relative">
-                      <div className="w-20 h-20 bg-gradient-to-br from-purple-500/20 to-violet-600/20 rounded-2xl border border-purple-500/20 flex items-center justify-center mx-auto backdrop-blur-sm animate-pulse-glow">
-                        <Image
-                          src={"/logo.png"}
-                          width={500}
-                          height={500}
-                          alt="logo"
-                        />
-                      </div>
+                    <div className="w-20 h-20 bg-gradient-to-br from-purple-500/20 to-violet-600/20 rounded-2xl border border-purple-500/20 flex items-center justify-center mx-auto backdrop-blur-sm animate-pulse-glow">
+                      <Image
+                        src="/logo.png"
+                        width={500}
+                        height={500}
+                        alt="logo"
+                      />
                     </div>
 
-                    {/* Heading */}
-                    <div className="space-y-3">
-                      <h2 className="text-3xl font-bold bg-gradient-to-r from-zinc-100 to-zinc-400 bg-clip-text text-transparent">
-                        AI Image Editor
-                      </h2>
-                      <p className="text-zinc-500 text-sm leading-relaxed max-w-xs mx-auto">
-                        Upload an image to start editing with powerful AI tools.
-                        Inpaint, apply filters, expand, and transform.
-                      </p>
-                    </div>
-
-                    {/* Feature pills */}
-                    <div className="flex flex-wrap justify-center gap-2">
-                      {[
-                        { icon: Wand2, text: "Inpainting" },
-                        { icon: Palette, text: "AI Filters" },
-                        { icon: Sparkles, text: "Expansion" },
-                      ].map((feature) => (
-                        <div
-                          key={feature.text}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900/80 border border-zinc-800 text-xs text-zinc-400"
-                        >
-                          <feature.icon size={12} className="text-purple-400" />
-                          {feature.text}
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Upload button */}
-                    <div className="space-y-3">
-                      <Button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="w-full h-12 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white font-semibold rounded-xl transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-500/25 border-0"
+                    {/* Tab switcher */}
+                    <div className="flex bg-zinc-900/50 border border-zinc-800 rounded-xl p-1 gap-1">
+                      <button
+                        onClick={() => setTab("upload")}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                          tab === "upload"
+                            ? "bg-zinc-800 text-zinc-100"
+                            : "text-zinc-500 hover:text-zinc-300"
+                        }`}
                       >
-                        <ImagePlus size={18} className="mr-2" />
-                        Select Image
-                      </Button>
-                      <p className="text-zinc-600 text-xs">
-                        or drag and drop an image anywhere
-                      </p>
+                        <ImagePlus size={15} />
+                        Upload Image
+                      </button>
+                      <button
+                        onClick={() => setTab("generate")}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                          tab === "generate"
+                            ? "bg-zinc-800 text-zinc-100"
+                            : "text-zinc-500 hover:text-zinc-300"
+                        }`}
+                      >
+                        <Sparkles size={15} />
+                        Generate
+                      </button>
                     </div>
+
+                    {tab === "upload" ? (
+                      <div className="space-y-4">
+                        <p className="text-zinc-500 text-sm leading-relaxed">
+                          Upload an image to start editing with powerful AI
+                          tools. Inpaint, apply filters, expand, and transform.
+                        </p>
+                        <div className="flex flex-wrap justify-center gap-2">
+                          {[
+                            { icon: Wand2, text: "Inpainting" },
+                            { icon: Palette, text: "AI Filters" },
+                            { icon: Sparkles, text: "Expansion" },
+                          ].map((f) => (
+                            <div
+                              key={f.text}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900/80 border border-zinc-800 text-xs text-zinc-400"
+                            >
+                              <f.icon size={12} className="text-purple-400" />
+                              {f.text}
+                            </div>
+                          ))}
+                        </div>
+                        <Button
+                          onClick={() => fileInputRef.current?.click()}
+                          className="w-full h-12 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white font-semibold rounded-xl transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-500/25 border-0"
+                        >
+                          <ImagePlus size={18} className="mr-2" />
+                          Select Image
+                        </Button>
+                        <p className="text-zinc-600 text-xs">
+                          or drag and drop an image anywhere
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4 text-left">
+                        <p className="text-zinc-500 text-sm text-center leading-relaxed">
+                          Describe the image you want to create and let AI
+                          generate it for you.
+                        </p>
+                        <textarea
+                          placeholder="A cinematic portrait of an astronaut in a neon-lit Tokyo alleyway, rain-soaked streets reflecting pink and blue lights, ultra-realistic..."
+                          value={prompt}
+                          onChange={(e) => setPrompt(e.target.value)}
+                          rows={4}
+                          className="w-full resize-none bg-zinc-900/50 border border-zinc-800 text-zinc-100 placeholder:text-zinc-600 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/20"
+                        />
+                        {generateError && (
+                          <p className="text-red-400 text-xs">{generateError}</p>
+                        )}
+                        {credits !== null && credits <= 0 && (
+                          <p className="text-red-400 text-xs flex items-center gap-1.5">
+                            <Zap size={12} />
+                            No credits remaining
+                          </p>
+                        )}
+                        <Button
+                          onClick={handleGenerate}
+                          disabled={
+                            isLoading ||
+                            !prompt.trim() ||
+                            (credits !== null && credits <= 0)
+                          }
+                          className="w-full h-12 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white font-semibold rounded-xl transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-500/25 border-0 disabled:opacity-50 disabled:scale-100"
+                        >
+                          {isLoading ? (
+                            <Loader2 size={18} className="mr-2 animate-spin" />
+                          ) : (
+                            <Sparkles size={18} className="mr-2" />
+                          )}
+                          {isLoading ? "Generating…" : "Generate Image"}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="relative w-full h-full flex items-center justify-center">
@@ -169,7 +251,6 @@ export default function Home() {
                 )}
               </div>
 
-              {/* render when image is generating */}
               {isLoading && <ImageGenerationLoading />}
             </div>
 
