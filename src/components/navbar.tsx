@@ -60,6 +60,7 @@ export function Navbar({
   const handleDownload = () => {
     const link = document.createElement("a");
     link.download = `imggen-${Date.now()}.png`;
+    link.download = `imgstudio-${Date.now()}.png`;
     link.href = image as string;
     link.click();
   };
@@ -89,6 +90,12 @@ export function Navbar({
             <Image
               src="/logo.png"
               alt="ImgGen Logo"
+          className="flex items-center gap-2 font-bold text-xl hover:opacity-90 transition-opacity"
+          href="/">
+          {/* <div className="relative h-11 w-11 overflow-hidden rounded-xl flex items-center justify-center">
+            <Image
+              src="/logo.png"
+              alt="ImgStudio AI Logo"
               fill
               className="object-cover p-0.5"
               priority
@@ -96,6 +103,10 @@ export function Navbar({
           </div>
           <span className="text-zinc-100 hidden md:block tracking-tight text-base">
             Img<span className="text-purple-400">Gen</span>
+          </div> */}
+          <span className="text-zinc-100 hidden md:block tracking-tight">
+            {`ImgStudio `}
+            <span className="text-yellow-500">AI</span>
           </span>
         </Link>
       </div>

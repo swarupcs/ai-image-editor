@@ -15,14 +15,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ImgGen",
-  description: "AI Image Editor",
-  keywords: "imggen,ai-image-editor",
-  creator: "ImgGen",
+  title: 'ImgStudio AI',
+  description: 'AI Image Editor',
+  keywords: 'imgstudio,ai,image editor',
+  creator: 'imgstudio',  
   icons: {
-    icon: "/favicon.ico",
-    shortcut: "/favicon-16x16.png",
-    apple: "/apple-touch-icon.png",
+    icon: '/favicon.ico',
+    // shortcut: '/favicon-16x16.png',
+    // apple: '/apple-touch-icon.png',
   },
 };
 
