@@ -71,8 +71,8 @@ export async function POST(request: Request) {
   // ✅ Vertex AI initialization instead of API key
   const ai = new GoogleGenAI({
     vertexai: true,
-    project: process.env.GCP_PROJECT_ID,
-    location: 'global',
+    project: process.env.GOOGLE_CLOUD_PROJECT,
+    location: process.env.GCP_LOCATION,
   });
 
   const fixedInputBase64 = await fixImageOrientation(

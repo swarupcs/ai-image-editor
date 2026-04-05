@@ -190,8 +190,8 @@ export function Navbar({
             href='/dashboard'
           >
             <span className='text-zinc-100 hidden md:block tracking-tight'>
-              {`ImgStudio `}
-              <span className='text-yellow-500'>AI</span>
+              {`Img `}
+              <span className='text-yellow-500'>Studio</span>
             </span>
           </Link>
 

@@ -1,12 +1,12 @@
-import { NextResponse } from "next/server";
-import { GoogleGenAI } from "@google/genai";
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { NextResponse } from 'next/server';
+import { GoogleGenAI } from '@google/genai';
+import { auth } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const user = await prisma.user.findUnique({
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
 
   if (!user || user.credits <= 0) {
     return NextResponse.json(
-      { error: "Insufficient credits", credits: 0 },
+      { error: 'Insufficient credits', credits: 0 },
       { status: 402 },
     );
   }
@@ -24,16 +24,20 @@ export async function POST(request: Request) {
   const { prompt, aspectRatio } = await request.json();
 
   if (!prompt?.trim()) {
-    return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
+    return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
   }
 
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  const ai = new GoogleGenAI({
+    vertexai: true,
+    project: process.env.GOOGLE_CLOUD_PROJECT,
+    location: process.env.GCP_LOCATION,
+  });
 
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash-image",
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    model: 'gemini-2.5-flash-preview-05-20',
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
     config: {
-      responseModalities: ["TEXT", "IMAGE"],
+      responseModalities: ['TEXT', 'IMAGE'],
       imageConfig: { aspectRatio: aspectRatio || undefined },
     },
   });
@@ -57,5 +61,8 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ error: "Failed to generate image" }, { status: 500 });
+  return NextResponse.json(
+    { error: 'Failed to generate image' },
+    { status: 500 },
+  );
 }
