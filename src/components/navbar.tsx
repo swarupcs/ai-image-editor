@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import Image from "next/image";
-import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
+import Link from 'next/link';
+import Image from 'next/image';
+import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import {
   Download,
   Redo,
@@ -16,17 +16,28 @@ import {
   CheckCircle2,
   SplitSquareHorizontal,
   Keyboard,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useEditorStore } from "@/store/useEditorState";
+  FilePlus2,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useEditorStore } from '@/store/useEditorState';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { ExportPanel } from "@/components/export-panel";
-import { KeyboardShortcutModal } from "@/components/keyboard-shortcut-modal";
+} from '@/components/ui/tooltip';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { ExportPanel } from '@/components/export-panel';
+import { KeyboardShortcutModal } from '@/components/keyboard-shortcut-modal';
 import { toast } from 'sonner';
 
 export function Navbar({
@@ -48,11 +59,13 @@ export function Navbar({
     toggleBeforeAfter,
     showShortcutsModal,
     setShowShortcutsModal,
+    resetEditor,
   } = useEditorStore();
 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [showResetDialog, setShowResetDialog] = useState(false);
 
   useEffect(() => {
     fetchCredits();
@@ -80,6 +93,11 @@ export function Navbar({
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleResetConfirm = () => {
+    resetEditor();
+    setShowResetDialog(false);
   };
 
   return (
@@ -176,6 +194,25 @@ export function Navbar({
                 </TooltipContent>
               </Tooltip>
             )}
+
+            {/* New Session button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={() => setShowResetDialog(true)}
+                  disabled={!image}
+                  variant='ghost'
+                  size='sm'
+                  className='h-8 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/80 px-2.5 md:px-3'
+                >
+                  <FilePlus2 size={14} className='md:mr-1.5' />
+                  <span className='hidden md:inline text-xs'>New</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side='bottom' className='text-xs'>
+                Start New Session
+              </TooltipContent>
+            </Tooltip>
 
             <Tooltip>
               <TooltipTrigger asChild>
@@ -309,6 +346,32 @@ export function Navbar({
         open={showShortcutsModal}
         onClose={() => setShowShortcutsModal(false)}
       />
+
+      {/* Reset Confirmation Dialog */}
+      <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+        <AlertDialogContent className='bg-zinc-900 border-zinc-800 text-zinc-100'>
+          <AlertDialogHeader>
+            <AlertDialogTitle className='text-zinc-100'>
+              Start New Session?
+            </AlertDialogTitle>
+            <AlertDialogDescription className='text-zinc-400'>
+              This will clear your current image and reset the editor. Make sure
+              to save your work first if you want to keep it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className='bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100'>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleResetConfirm}
+              className='bg-purple-600 hover:bg-purple-500 text-white'
+            >
+              Start New Session
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

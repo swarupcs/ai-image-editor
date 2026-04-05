@@ -91,6 +91,7 @@ type EditorState = {
   addRecentColor: (color: string) => void;
   setShowShortcutsModal: (show: boolean) => void;
   replaceBackground: (scene: string) => Promise<void>;
+  resetEditor: () => void;
 };
 
 // Keys persisted to localStorage across reloads
@@ -261,6 +262,31 @@ export const useEditorStore = create<EditorState>()(
           } catch {
             /* silent */
           }
+        },
+
+        // ── Reset Editor (New Session) ───────────────────────────────────
+        resetEditor: () => {
+          set({
+            image: null,
+            originalImage: null,
+            mask: null,
+            prompt: '',
+            history: [],
+            historyIndex: 0,
+            showHistory: false,
+            isLoading: false,
+            userFiles: [],
+            selectedTool: ToolType.MOVE,
+            brushSize: 100,
+            textLayers: [],
+            adjustments: { ...DEFAULT_ADJUSTMENTS },
+            blendSource: null,
+            pickedColor: null,
+            showBeforeAfter: false,
+            cropRect: null,
+            canvasEffects: { blur: 0, vignette: 0, grain: 0 },
+          });
+          toast.success('Session reset - ready for new image');
         },
 
         // ── AI Actions ───────────────────────────────────────────────────
