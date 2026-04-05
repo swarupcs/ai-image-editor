@@ -129,7 +129,7 @@ const ImageEditor = () => {
     const fit = Math.min(scaleX, scaleY, 1);
     setZoom(fit);
     setPan({ x: 0, y: 0 });
-  }, []);
+  }, [setZoom, setPan]);
 
   // ── Init on image change ───────────────────────────────────────────────
   useEffect(() => {
@@ -202,7 +202,7 @@ const ImageEditor = () => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? -0.08 : 0.08;
     setZoom((z) => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z + delta)));
-  }, []);
+  }, [setZoom]);
 
   useEffect(() => {
     const el = containerRef.current;
