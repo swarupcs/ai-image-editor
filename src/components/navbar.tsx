@@ -57,13 +57,6 @@ export function Navbar({
     fetchCredits();
   }, [fetchCredits]);
 
-  const handleDownload = () => {
-    const link = document.createElement("a");
-    link.download = `imggen-${Date.now()}.png`;
-    link.download = `imgstudio-${Date.now()}.png`;
-    link.href = image as string;
-    link.click();
-  };
 
   const handleSave = async () => {
     if (!image || saving) return;
@@ -86,24 +79,16 @@ export function Navbar({
           className="flex items-center gap-2.5 font-bold text-lg hover:opacity-90 transition-opacity"
           href="/"
         >
-          <div className="relative h-9 w-9 overflow-hidden rounded-lg flex items-center justify-center bg-gradient-to-br from-purple-500/10 to-violet-600/10 border border-purple-500/20">
-            <Image
-              src="/logo.png"
-              alt="ImgGen Logo"
-          className="flex items-center gap-2 font-bold text-xl hover:opacity-90 transition-opacity"
-          href="/">
-          {/* <div className="relative h-11 w-11 overflow-hidden rounded-xl flex items-center justify-center">
+          <div className="relative h-9 w-9 overflow-hidden rounded-lg flex items-center justify-center bg-linear-to-br from-purple-500/10 to-violet-600/10 border border-purple-500/20">
             <Image
               src="/logo.png"
               alt="ImgStudio AI Logo"
-              fill
-              className="object-cover p-0.5"
+              width={36}
+              height={36}
+              className="object-cover rounded-md"
               priority
             />
           </div>
-          <span className="text-zinc-100 hidden md:block tracking-tight text-base">
-            Img<span className="text-purple-400">Gen</span>
-          </div> */}
           <span className="text-zinc-100 hidden md:block tracking-tight">
             {`ImgStudio `}
             <span className="text-yellow-500">AI</span>
@@ -246,7 +231,7 @@ export function Navbar({
                 onClick={() => setShowExport(true)}
                 disabled={!image}
                 size="sm"
-                className="h-8 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white font-medium px-2.5 md:px-3 rounded-lg border-0 text-xs"
+                className="h-8 bg-linear-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white font-medium px-2.5 md:px-3 rounded-lg border-0 text-xs"
               >
                 <Download size={14} className="md:mr-1.5" />
                 <span className="hidden md:inline">Export</span>

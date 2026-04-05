@@ -1,22 +1,16 @@
 import { NextResponse } from "next/server";
-import { GoogleGenAI } from "@google/genai";
+import { GenerateContentResponse, GoogleGenAI } from "@google/genai";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import sharp from "sharp";
 
 function getMimeType(dataUrl: string): string {
   const match = dataUrl.match(/^data:(image\/[a-zA-Z+]+);base64,/);
   return match ? match[1] : "image/png";
-import { NextResponse } from 'next/server';
-import { GenerateContentResponse, GoogleGenAI } from '@google/genai';
-import sharp from 'sharp';
-
-function getMimeType(dataUrl: string): string {
-  const match = dataUrl.match(/^data:(image\/[a-zA-Z+]+);base64,/);
-  return match ? match[1] : 'image/png';
 }
 
 function cleanBase64Image(dataUrl: string): string {
-  return dataUrl.replace(/^data:(.*);base64,/, '');
+  return dataUrl.replace(/^data:(.*);base64,/, "");
 }
 
 async function generateWithRetry(
@@ -27,8 +21,9 @@ async function generateWithRetry(
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       return await ai.models.generateContent(params);
-    } catch (error: any) {
-      const is429 = error?.status === 429 || error?.message?.includes('429');
+    } catch (error: unknown) {
+      const err = error as { status?: number; message?: string };
+      const is429 = err?.status === 429 || err?.message?.includes("429");
       const isLastAttempt = attempt === maxRetries - 1;
 
       if (is429 && !isLastAttempt) {
@@ -44,17 +39,17 @@ async function generateWithRetry(
   }
 
   // This is only reached if maxRetries is 0
-  throw new Error('generateWithRetry called with maxRetries <= 0');
+  throw new Error("generateWithRetry called with maxRetries <= 0");
 }
 
-// ✅ Auto-rotates based on EXIF orientation and converts to PNG
+// Auto-rotates based on EXIF orientation and converts to PNG
 async function fixImageOrientation(base64: string): Promise<string> {
-  const buffer = Buffer.from(base64, 'base64');
+  const buffer = Buffer.from(base64, "base64");
   const fixed = await sharp(buffer)
     .rotate() // reads EXIF orientation and corrects it
     .png()
     .toBuffer();
-  return fixed.toString('base64');
+  return fixed.toString("base64");
 }
 
 export async function POST(request: Request) {
@@ -71,7 +66,7 @@ export async function POST(request: Request) {
   if (!user || user.credits <= 0) {
     return NextResponse.json(
       { error: "Insufficient credits", credits: 0 },
-      { status: 402 }
+      { status: 402 },
     );
   }
 
@@ -79,16 +74,8 @@ export async function POST(request: Request) {
     await request.json();
 
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-  const { imageBase64, prompt, userFiles, aspectRatio, maskBase64 } =
-    await request.json();
 
-  const ai = new GoogleGenAI({
-    vertexai: true,
-    project: process.env.GCP_PROJECT_ID,
-    location: 'global',
-  });
-
-  // ✅ Fix orientation before sending to the model
+  // Fix orientation before sending to the model
   const fixedInputBase64 = await fixImageOrientation(
     cleanBase64Image(imageBase64),
   );
@@ -97,7 +84,7 @@ export async function POST(request: Request) {
     { text: prompt },
     {
       inlineData: {
-        mimeType: 'image/png',
+        mimeType: "image/png",
         data: fixedInputBase64,
       },
     },
@@ -107,25 +94,19 @@ export async function POST(request: Request) {
     const fixedMask = await fixImageOrientation(cleanBase64Image(maskBase64));
     parts.push({
       inlineData: {
-        mimeType: 'image/png',
+        mimeType: "image/png",
         data: fixedMask,
       },
     });
   }
 
   if (userFiles && Array.isArray(userFiles) && userFiles.length > 0) {
-    const processedFiles = userFiles.map((file: { url: string }) => ({
-      inlineData: {
-        mimeType: getMimeType(file.url),
-        data: cleanBase64Image(file.url),
-      },
-    }));
     const processedFiles = await Promise.all(
-      userFiles.map(async (file) => {
+      userFiles.map(async (file: { url: string }) => {
         const fixed = await fixImageOrientation(cleanBase64Image(file.url));
         return {
           inlineData: {
-            mimeType: 'image/png',
+            mimeType: getMimeType(file.url),
             data: fixed,
           },
         };
@@ -135,12 +116,10 @@ export async function POST(request: Request) {
   }
 
   const response = await generateWithRetry(ai, {
-    // model: 'gemini-3.1-flash-image-preview',
-    model: 'gemini-2.5-flash-image',
-    contents: [{ role: 'user', parts }],
+    model: "gemini-2.5-flash-image",
+    contents: [{ role: "user", parts }],
     config: {
-      imageConfig: { aspectRatio: aspectRatio || undefined },
-      responseModalities: ['TEXT', 'IMAGE'],
+      responseModalities: ["TEXT", "IMAGE"],
       imageConfig: {
         aspectRatio: aspectRatio || undefined,
       },
@@ -168,15 +147,8 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ error: "Failed to generate the image" }, { status: 500 });
-        const imageData = part.inlineData.data;
-        const mimeType = part.inlineData.mimeType ?? 'image/png';
-        return NextResponse.json({
-          result: `data:${mimeType};base64,${imageData}`,
-        });
-      }
-    }
-  }
-
-  return NextResponse.json({ message: 'Failed to generate the image' });
+  return NextResponse.json(
+    { error: "Failed to generate the image" },
+    { status: 500 },
+  );
 }

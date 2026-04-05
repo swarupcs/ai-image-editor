@@ -54,7 +54,7 @@ export function ExportPanel({ onClose }: ExportPanelProps) {
 
       const dataUrl = canvas.toDataURL(mimeType, qualityValue);
       const link = document.createElement("a");
-      link.download = `imggen-${Date.now()}.${format}`;
+      link.download = `imgstudio-${Date.now()}.${format}`;
       link.href = dataUrl;
       link.click();
     } finally {
@@ -152,7 +152,7 @@ export function ExportPanel({ onClose }: ExportPanelProps) {
           <Button
             onClick={handleExport}
             disabled={!image || exporting}
-            className="w-full h-9 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white font-medium text-sm border-0"
+            className="w-full h-9 bg-linear-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white font-medium text-sm border-0"
           >
             <Download size={14} className="mr-2" />
             {exporting ? "Exporting…" : "Download"}

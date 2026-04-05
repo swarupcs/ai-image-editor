@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   if (!user || user.credits <= 0) {
     return NextResponse.json(
       { error: "Insufficient credits", credits: 0 },
-      { status: 402 }
+      { status: 402 },
     );
   }
 
@@ -30,9 +30,10 @@ export async function POST(request: Request) {
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-pro-image-preview",
-    contents: [{ text: prompt }],
+    model: "gemini-2.5-flash-image",
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
     config: {
+      responseModalities: ["TEXT", "IMAGE"],
       imageConfig: { aspectRatio: aspectRatio || undefined },
     },
   });

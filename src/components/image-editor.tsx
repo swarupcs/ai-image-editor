@@ -2,7 +2,7 @@
 
 import { ToolType } from "@/lib/constants";
 import { useEditorStore } from "@/store/useEditorState";
-import { CropRect, Point } from "@/types";
+import { Point } from "@/types";
 import {
   useCallback,
   useEffect,
@@ -103,6 +103,18 @@ const ImageEditor = () => {
     ctx.drawImage(overlay, 0, 0);
   }, []);
 
+  // ── Fit zoom to container ──────────────────────────────────────────────
+  const fitToContainer = useCallback(() => {
+    const container = containerRef.current;
+    const canvas = canvasRef.current;
+    if (!container || !canvas || !canvas.width) return;
+    const scaleX = (container.clientWidth - 64) / canvas.width;
+    const scaleY = (container.clientHeight - 64) / canvas.height;
+    const fit = Math.min(scaleX, scaleY, 1);
+    setZoom(fit);
+    setPan({ x: 0, y: 0 });
+  }, []);
+
   // ── Init on image change ───────────────────────────────────────────────
   useEffect(() => {
     if (!image) return;
@@ -115,15 +127,15 @@ const ImageEditor = () => {
       canvas.height = img.naturalHeight;
 
       maskCanvasRef.current = document.createElement("canvas");
-      maskCanvasRef.current.width = img.width;
-      maskCanvasRef.current.height = img.height;
+      maskCanvasRef.current.width = img.naturalWidth;
+      maskCanvasRef.current.height = img.naturalHeight;
       const mctx = maskCanvasRef.current.getContext("2d")!;
       mctx.fillStyle = "black";
-      mctx.fillRect(0, 0, img.width, img.height);
+      mctx.fillRect(0, 0, img.naturalWidth, img.naturalHeight);
 
       overlayCanvasRef.current = document.createElement("canvas");
-      overlayCanvasRef.current.width = img.width;
-      overlayCanvasRef.current.height = img.height;
+      overlayCanvasRef.current.width = img.naturalWidth;
+      overlayCanvasRef.current.height = img.naturalHeight;
 
       penCanvasRef.current = document.createElement("canvas");
       penCanvasRef.current.width = img.naturalWidth;
@@ -133,19 +145,7 @@ const ImageEditor = () => {
       draw();
       fitToContainer();
     };
-  }, [image, draw]);
-
-  // ── Fit zoom to container ──────────────────────────────────────────────
-  const fitToContainer = useCallback(() => {
-    const container = containerRef.current;
-    const canvas = canvasRef.current;
-    if (!container || !canvas || !canvas.width) return;
-    const scaleX = (container.clientWidth - 64) / canvas.width;
-    const scaleY = (container.clientHeight - 64) / canvas.height;
-    const fit = Math.min(scaleX, scaleY, 1);
-    setZoom(fit);
-    setPan({ x: 0, y: 0 });
-  }, []);
+  }, [image, draw, fitToContainer]);
 
   // ── CSS filter string for live adjustments preview ────────────────────
   const filterStr =
@@ -336,9 +336,9 @@ const ImageEditor = () => {
         }
         if (nw > 5 && nh > 5) setCropRect({ x: nx, y: ny, width: nw, height: nh });
       } else if (cropDragging && cropStartRef.current) {
-        let x = Math.min(pos.x, cropStartRef.current.x);
-        let y = Math.min(pos.y, cropStartRef.current.y);
-        let w = Math.abs(pos.x - cropStartRef.current.x);
+        const x = Math.min(pos.x, cropStartRef.current.x);
+        const y = Math.min(pos.y, cropStartRef.current.y);
+        const w = Math.abs(pos.x - cropStartRef.current.x);
         let h = Math.abs(pos.y - cropStartRef.current.y);
         const ratio = ASPECT_RATIOS[cropAspect];
         if (ratio) h = w / ratio;
@@ -485,10 +485,10 @@ const ImageEditor = () => {
             <div
               className="absolute border-2 border-white shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]"
               style={{
-                left: (cropRect.x / (canvasRef.current?.width || 1)) * 100 + "%",
-                top: (cropRect.y / (canvasRef.current?.height || 1)) * 100 + "%",
-                width: (cropRect.width / (canvasRef.current?.width || 1)) * 100 + "%",
-                height: (cropRect.height / (canvasRef.current?.height || 1)) * 100 + "%",
+                left: (cropRect.x / (canvasDimensions?.w || 1)) * 100 + "%",
+                top: (cropRect.y / (canvasDimensions?.h || 1)) * 100 + "%",
+                width: (cropRect.width / (canvasDimensions?.w || 1)) * 100 + "%",
+                height: (cropRect.height / (canvasDimensions?.h || 1)) * 100 + "%",
               }}
               onPointerDown={(e) => e.stopPropagation()}
             >
@@ -530,8 +530,8 @@ const ImageEditor = () => {
             <TextLayerNode
               key={layer.id}
               layer={layer}
-              canvasWidth={canvasRef.current?.width ?? 800}
-              canvasHeight={canvasRef.current?.height ?? 600}
+              canvasWidth={canvasDimensions?.w ?? 800}
+              canvasHeight={canvasDimensions?.h ?? 600}
               onUpdate={(u) => updateTextLayer(layer.id, u)}
               onRemove={() => removeTextLayer(layer.id)}
             />
