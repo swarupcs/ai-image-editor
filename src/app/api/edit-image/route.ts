@@ -65,8 +65,24 @@ export async function POST(request: Request) {
     );
   }
 
-  const { imageBase64, prompt, userFiles, aspectRatio, maskBase64 } =
-    await request.json();
+  const formData = await request.formData();
+  const imageFile = formData.get('image') as File | null;
+  const maskFile = formData.get('mask') as File | null;
+  const prompt = formData.get('prompt') as string;
+  const aspectRatio = formData.get('aspectRatio') as string;
+  const userFiles = formData.getAll('userFiles') as File[];
+
+  if (!imageFile || !prompt) {
+    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+  }
+
+  const fileToBase64 = async (file: File) => {
+    const arrayBuffer = await file.arrayBuffer();
+    return Buffer.from(arrayBuffer).toString('base64');
+  };
+
+  const imageBase64 = await fileToBase64(imageFile);
+  const maskBase64 = maskFile ? await fileToBase64(maskFile) : null;
 
   // ✅ Vertex AI initialization instead of API key
   const ai = new GoogleGenAI({
@@ -99,13 +115,14 @@ export async function POST(request: Request) {
     });
   }
 
-  if (userFiles && Array.isArray(userFiles) && userFiles.length > 0) {
+  if (userFiles && userFiles.length > 0) {
     const processedFiles = await Promise.all(
-      userFiles.map(async (file: { url: string }) => {
-        const fixed = await fixImageOrientation(cleanBase64Image(file.url));
+      userFiles.map(async (file: File) => {
+        const fileBase64 = await fileToBase64(file);
+        const fixed = await fixImageOrientation(cleanBase64Image(fileBase64));
         return {
           inlineData: {
-            mimeType: getMimeType(file.url),
+            mimeType: file.type || 'image/png',
             data: fixed,
           },
         };

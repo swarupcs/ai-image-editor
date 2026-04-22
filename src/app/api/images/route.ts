@@ -36,11 +36,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { imageData, prompt, title } = await request.json();
+  const formData = await request.formData();
+  const imageFile = formData.get("image") as File | null;
+  const prompt = formData.get("prompt") as string;
+  const title = formData.get("title") as string;
 
-  if (!imageData) {
+  if (!imageFile) {
     return NextResponse.json({ error: "Image data is required" }, { status: 400 });
   }
+
+  const arrayBuffer = await imageFile.arrayBuffer();
+  const base64String = Buffer.from(arrayBuffer).toString("base64");
+  const mimeType = imageFile.type || 'image/png';
+  const imageData = `data:${mimeType};base64,${base64String}`;
 
   const image = await prisma.generatedImage.create({
     data: {
