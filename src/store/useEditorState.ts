@@ -35,6 +35,7 @@ type EditorState = {
   penColor: string;
   recentColors: string[];
   showShortcutsModal: boolean;
+  generatedVariations: string[] | null;
 
   setMask: (mask: string) => void;
   setBrushSize: (size: number) => void;
@@ -58,7 +59,9 @@ type EditorState = {
   resetAdjustments: () => void;
   generateEdit: () => Promise<void>;
   generateFromPrompt: () => Promise<void>;
+  setGeneratedVariations: (variations: string[] | null) => void;
   applyFilter: (prompt: string) => Promise<void>;
+
   applyExpansion: (aspectRatio: string) => Promise<void>;
   removeBackground: () => Promise<void>;
   enhanceImage: () => Promise<void>;
@@ -133,15 +136,49 @@ const safeStorage = createJSONStorage(() => ({
   },
 }));
 
+function dataURLtoBlob(dataurl: string) {
+  const arr = dataurl.split(',');
+  const mimeMatch = arr[0].match(/:(.*?);/);
+  const mime = mimeMatch ? mimeMatch[1] : 'image/png';
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new Blob([u8arr], { type: mime });
+}
+
 async function callEditImage(
   imageBase64: string,
   prompt: string,
-  extra?: object,
+  extra?: any,
 ) {
+  const formData = new FormData();
+  
+  formData.append('image', dataURLtoBlob(imageBase64), 'image.png');
+  formData.append('prompt', prompt);
+
+  if (extra) {
+    if (extra.maskBase64) {
+      formData.append('mask', dataURLtoBlob(extra.maskBase64), 'mask.png');
+    }
+    if (extra.aspectRatio) {
+      formData.append('aspectRatio', extra.aspectRatio);
+    }
+    if (extra.userFiles && Array.isArray(extra.userFiles)) {
+      for (let i = 0; i < extra.userFiles.length; i++) {
+        const filePart = extra.userFiles[i];
+        if (filePart.url) {
+          formData.append('userFiles', dataURLtoBlob(filePart.url), `userFile-${i}.png`);
+        }
+      }
+    }
+  }
+
   const res = await fetch('/api/edit-image', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ imageBase64, prompt, ...extra }),
+    body: formData,
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -189,6 +226,7 @@ export const useEditorStore = create<EditorState>()(
         penColor: '#e74c3c',
         recentColors: [],
         showShortcutsModal: false,
+        generatedVariations: null,
 
         // ── Setters ──────────────────────────────────────────────────────
         setMask: (mask) => set({ mask }),
@@ -196,6 +234,7 @@ export const useEditorStore = create<EditorState>()(
         setSelectedTool: (tool) => set({ selectedTool: tool }),
         setUserFiles: (files) => set({ userFiles: files }),
         setCredits: (credits) => set({ credits }),
+        setGeneratedVariations: (variations) => set({ generatedVariations: variations }),
         setPickedColor: (color) => {
           set({ pickedColor: color });
           if (color) {
@@ -225,6 +264,7 @@ export const useEditorStore = create<EditorState>()(
             cropRect: null,
             adjustments: { ...DEFAULT_ADJUSTMENTS },
             canvasEffects: { blur: 0, vignette: 0, grain: 0 },
+            generatedVariations: null,
           })),
         setHistory: (history) => set({ history }),
         setHistoryIndex: (index) => {
@@ -285,6 +325,7 @@ export const useEditorStore = create<EditorState>()(
             showBeforeAfter: false,
             cropRect: null,
             canvasEffects: { blur: 0, vignette: 0, grain: 0 },
+            generatedVariations: null,
           });
           toast.success('Session reset - ready for new image');
         },
@@ -333,15 +374,25 @@ export const useEditorStore = create<EditorState>()(
             if (!res.ok) throw new Error((await res.json()).error || 'Failed');
             const data = await res.json();
             if (data.credits !== undefined) set({ credits: data.credits });
-            set({
-              image: data.result,
-              originalImage: data.result,
-              history: [data.result],
-              historyIndex: 0,
-              isLoading: false,
-              textLayers: [],
-            });
-            toast.success('Image generated!');
+            
+            if (data.results && data.results.length > 1) {
+              set({
+                generatedVariations: data.results,
+                isLoading: false,
+              });
+              toast.success('Variations generated! Please select one.');
+            } else {
+              const result = data.results ? data.results[0] : data.result;
+              set({
+                image: result,
+                originalImage: result,
+                history: [result],
+                historyIndex: 0,
+                isLoading: false,
+                textLayers: [],
+              });
+              toast.success('Image generated!');
+            }
           } catch (err) {
             set({ isLoading: false });
             toast.error(
@@ -483,14 +534,21 @@ export const useEditorStore = create<EditorState>()(
         saveCurrentImage: async (title) => {
           const state = get();
           if (!state.image) throw new Error('No image to save');
+          
+          const formData = new FormData();
+          formData.append('image', dataURLtoBlob(state.image), 'image.png');
+          
+          if (state.prompt) {
+            formData.append('prompt', state.prompt);
+          }
+          const finalTitle = title || state.prompt?.slice(0, 80);
+          if (finalTitle) {
+            formData.append('title', finalTitle);
+          }
+
           const res = await fetch('/api/images', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              imageData: state.image,
-              prompt: state.prompt || undefined,
-              title: title || state.prompt?.slice(0, 80) || undefined,
-            }),
+            body: formData,
           });
           if (!res.ok) throw new Error('Failed to save image');
           return (await res.json()).id as string;

@@ -38,27 +38,39 @@ export async function POST(request: Request) {
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     config: {
       responseModalities: ['TEXT', 'IMAGE'],
-      imageConfig: { aspectRatio: aspectRatio || undefined },
+      candidateCount: 4,
+      imageConfig: { 
+        aspectRatio: aspectRatio || undefined,
+      },
     },
   });
 
-  const content = response.candidates?.[0]?.content;
+  const results: string[] = [];
 
-  if (content?.parts) {
-    for (const part of content.parts) {
-      if (part.inlineData) {
-        const updated = await prisma.user.update({
-          where: { id: session.user.id },
-          data: { credits: { decrement: 1 } },
-          select: { credits: true },
-        });
-
-        return NextResponse.json({
-          result: `data:image/png;base64,${part.inlineData.data}`,
-          credits: updated.credits,
-        });
+  if (response.candidates) {
+    for (const candidate of response.candidates) {
+      const content = candidate.content;
+      if (content?.parts) {
+        for (const part of content.parts) {
+          if (part.inlineData) {
+            results.push(`data:image/png;base64,${part.inlineData.data}`);
+          }
+        }
       }
     }
+  }
+
+  if (results.length > 0) {
+    const updated = await prisma.user.update({
+      where: { id: session.user.id },
+      data: { credits: { decrement: 1 } },
+      select: { credits: true },
+    });
+
+    return NextResponse.json({
+      results,
+      credits: updated.credits,
+    });
   }
 
   return NextResponse.json(

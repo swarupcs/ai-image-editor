@@ -455,7 +455,48 @@ export const LeftSidebar = () => {
               <Type size={10} />
               Text Overlay
             </h3>
-            <div className="flex gap-1.5">
+            
+            <div className="space-y-2 px-1">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-[10px] text-zinc-500">Font</label>
+                  <select
+                    className="w-full h-7 bg-zinc-800/60 border border-zinc-700/50 rounded-md text-xs text-zinc-200 px-1 outline-none"
+                    onChange={(e) => {
+                      // A bit hacky: we can just attach this to global state or local state.
+                      // Since we're adding new text, let's keep it simple.
+                    }}
+                    id="text-font-select"
+                  >
+                    <option value="Inter, sans-serif">Inter</option>
+                    <option value="serif">Serif</option>
+                    <option value="monospace">Monospace</option>
+                    <option value="Impact, fantasy">Impact</option>
+                    <option value="Comic Sans MS, cursive">Comic</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] text-zinc-500">Size</label>
+                  <input
+                    type="number"
+                    defaultValue={32}
+                    id="text-size-input"
+                    className="w-full h-7 bg-zinc-800/60 border border-zinc-700/50 rounded-md text-xs text-zinc-200 px-2 outline-none"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-[10px] text-zinc-500 flex-1">Color</label>
+                <input
+                  type="color"
+                  defaultValue="#ffffff"
+                  id="text-color-input"
+                  className="w-6 h-6 rounded bg-transparent cursor-pointer p-0 border-0"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-1.5 mt-2">
               <Input
                 value={newText}
                 onChange={(e) => setNewText(e.target.value)}
@@ -466,8 +507,17 @@ export const LeftSidebar = () => {
                 size="sm"
                 disabled={!image || !newText.trim()}
                 onClick={() => {
-                  addTextLayer(newText.trim());
+                  const fontEl = document.getElementById("text-font-select") as HTMLSelectElement;
+                  const sizeEl = document.getElementById("text-size-input") as HTMLInputElement;
+                  const colorEl = document.getElementById("text-color-input") as HTMLInputElement;
+                  
+                  addTextLayer(newText.trim(), 0.5, 0.5, {
+                    fontFamily: fontEl?.value || 'Inter, sans-serif',
+                    fontSize: parseInt(sizeEl?.value || '32', 10),
+                    color: colorEl?.value || '#ffffff'
+                  });
                   setSelectedTool(ToolType.TEXT);
+                  setNewText('');
                 }}
                 className="h-8 w-8 p-0 bg-purple-600 hover:bg-purple-500 border-0 shrink-0"
               >
@@ -479,7 +529,7 @@ export const LeftSidebar = () => {
               disabled={!image || isLoading}
               variant="ghost"
               size="sm"
-              className="w-full h-7 text-[11px] text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50"
+              className="w-full h-7 text-[11px] text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 mt-1"
             >
               <Layers size={11} className="mr-1.5" />
               Flatten to Image

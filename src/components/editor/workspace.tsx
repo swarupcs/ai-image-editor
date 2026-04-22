@@ -11,6 +11,7 @@ import { useEditorStore } from "@/store/useEditorState";
 import ImageEditor from "@/components/editor/canvas/image-editor";
 import { BeforeAfterSlider } from "@/components/editor/panels/before-after-slider";
 import { PromptTemplates } from "@/components/editor/panels/prompt-templates";
+import { VariationsOverlay } from "@/components/editor/panels/variations-overlay";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import {
   ImagePlus,
@@ -337,6 +338,7 @@ export default function EditorWorkspace() {
               </div>
 
               {isLoading && <ImageGenerationLoading />}
+              <VariationsOverlay />
             </div>
 
             {/* PROMPT INPUT AREA */}

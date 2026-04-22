@@ -506,13 +506,10 @@ const ImageEditor = () => {
 
   // ── Handle click on canvas wrapper for TEXT tool ──────────────────────
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (selectedTool !== ToolType.TEXT) return;
-    if (!canvasRef.current) return;
-    const pos = getPointerPos(e as unknown as PointerEvent);
-    const xPct = pos.x / canvasRef.current.width;
-    const yPct = pos.y / canvasRef.current.height;
-    useEditorStore.getState().addTextLayer('Text', xPct, yPct);
-    setSelectedTool(ToolType.MOVE);
+    // We now add text exclusively via the sidebar UI
+    if (selectedTool === ToolType.TEXT) {
+      setSelectedTool(ToolType.MOVE);
+    }
   };
 
   // ── Smart Remove helpers ──────────────────────────────────────────────
