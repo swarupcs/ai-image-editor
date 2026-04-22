@@ -23,6 +23,7 @@ import {
   Globe,
   User,
   ChevronDown,
+  Shield,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEditorStore } from '@/store/useEditorState';
@@ -63,6 +64,8 @@ function NavMenu() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  const isAdmin = (session?.user as any)?.role === 'ADMIN';
+
   const navLinks = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/gallery/user', label: 'My Gallery', icon: Images },
@@ -93,6 +96,19 @@ function NavMenu() {
 
       {open && (
         <div className='absolute right-0 top-full mt-1.5 w-44 bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl z-[60] py-1 overflow-hidden'>
+          {isAdmin && (
+            <>
+              <Link
+                href="/admin"
+                className="flex items-center gap-2.5 px-3 py-2 text-xs text-purple-400 hover:bg-zinc-800 transition-colors"
+                onClick={() => setOpen(false)}
+              >
+                <Shield size={13} className="shrink-0" />
+                Admin Panel
+              </Link>
+              <div className='h-px bg-zinc-800 my-1' />
+            </>
+          )}
           {navLinks.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}

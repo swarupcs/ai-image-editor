@@ -24,6 +24,7 @@ type UserData = {
   name: string | null;
   email: string;
   image: string | null;
+  role: string;
   hasPassword: boolean;
   createdAt: string;
   accounts: { provider: string }[];
@@ -334,6 +335,26 @@ export default function ProfilePage() {
                 </div>
               )}
             </div>
+
+            {/* Admin Panel Quick Access */}
+            {userData?.role === 'ADMIN' && (
+              <div className="rounded-2xl bg-purple-900/10 border border-purple-500/20 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-sm font-semibold text-purple-400 flex items-center gap-2">
+                    <LayoutDashboard size={16} />
+                    Admin Access
+                  </h2>
+                  <p className="text-zinc-400 text-sm mt-1">
+                    You have administrator privileges. Manage users and generations from the Admin Panel.
+                  </p>
+                </div>
+                <Link href="/admin">
+                  <Button className="bg-purple-600 hover:bg-purple-500 text-white border-0 shrink-0 whitespace-nowrap">
+                    Go to Admin Panel
+                  </Button>
+                </Link>
+              </div>
+            )}
 
             {/* Edit display name */}
             <div className="rounded-2xl bg-zinc-900/50 border border-zinc-800/60 p-6 space-y-5">

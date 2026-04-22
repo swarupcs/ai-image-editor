@@ -1,7 +1,7 @@
 'use client';
 
 import { useSession, signOut } from 'next-auth/react';
-import { User, LogOut } from 'lucide-react';
+import { User, LogOut, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -15,6 +15,7 @@ import Link from 'next/link';
 
 export function UserNav() {
   const { data: session } = useSession();
+  const isAdmin = (session?.user as any)?.role === 'ADMIN';
 
   return (
     <DropdownMenu>
@@ -33,6 +34,17 @@ export function UserNav() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {isAdmin && (
+          <>
+            <DropdownMenuItem asChild>
+              <Link href="/admin" className="cursor-pointer flex items-center text-purple-400 focus:text-purple-300">
+                <Shield className="mr-2 h-4 w-4" />
+                <span>Admin Panel</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
         <DropdownMenuItem asChild>
           <Link href="/profile" className="cursor-pointer flex items-center">
              <User className="mr-2 h-4 w-4" />
