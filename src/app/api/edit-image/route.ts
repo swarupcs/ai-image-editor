@@ -97,10 +97,20 @@ export async function POST(request: Request) {
   const maskBase64 = maskFile ? await fileToBase64(maskFile) : null;
 
   // ✅ Vertex AI initialization instead of API key
+  const googleAuthOptions = process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY
+    ? {
+        credentials: {
+          client_email: process.env.GOOGLE_CLIENT_EMAIL,
+          private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        }
+      }
+    : undefined;
+
   const ai = new GoogleGenAI({
     vertexai: true,
     project: process.env.GOOGLE_CLOUD_PROJECT,
     location: process.env.GCP_LOCATION,
+    ...(googleAuthOptions && { googleAuthOptions }),
   });
 
   const fixedInputBase64 = await fixImageOrientation(
