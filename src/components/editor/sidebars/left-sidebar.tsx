@@ -44,7 +44,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import GridItem from "@/components/grid-item";
-import { StickerPanel } from "@/components/sticker-panel";
+import { StickerPanel } from "@/components/editor/panels/sticker-panel";
 import { filters, ratios, ToolType } from "@/lib/constants";
 import { ToolButton } from "@/components/tool-button";
 import { useEditorStore } from "@/store/useEditorState";

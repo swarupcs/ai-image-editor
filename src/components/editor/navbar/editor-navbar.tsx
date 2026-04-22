@@ -43,7 +43,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { ExportPanel } from '@/components/export-panel';
+import { ExportPanel } from '@/components/editor/panels/export-panel';
 import { KeyboardShortcutModal } from '@/components/keyboard-shortcut-modal';
 import { toast } from 'sonner';
 
