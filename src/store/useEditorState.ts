@@ -149,6 +149,57 @@ function dataURLtoBlob(dataurl: string) {
   return new Blob([u8arr], { type: mime });
 }
 
+async function resizeImageIfNeeded(dataurl: string, maxSizeMB: number = 4.5): Promise<string> {
+  const blob = dataURLtoBlob(dataurl);
+  const maxBytes = maxSizeMB * 1024 * 1024;
+  if (blob.size <= maxBytes) return dataurl;
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return resolve(dataurl);
+
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+
+      // Try WebP compression first to preserve dimensions
+      let newDataUrl = canvas.toDataURL('image/webp', 0.9);
+      let newBlob = dataURLtoBlob(newDataUrl);
+
+      if (newBlob.size <= maxBytes) {
+        return resolve(newDataUrl);
+      }
+
+      // If still too big, scale down dimensions
+      let scale = Math.sqrt(maxBytes / newBlob.size) * 0.95;
+
+      const attemptResize = () => {
+        canvas.width = Math.floor(img.width * scale);
+        canvas.height = Math.floor(img.height * scale);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        
+        newDataUrl = canvas.toDataURL('image/webp', 0.9);
+        newBlob = dataURLtoBlob(newDataUrl);
+        
+        if (newBlob.size <= maxBytes) {
+          resolve(newDataUrl);
+        } else {
+          scale *= 0.9;
+          if (scale < 0.1) return resolve(newDataUrl);
+          attemptResize();
+        }
+      };
+      attemptResize();
+    };
+    img.onerror = () => resolve(dataurl);
+    img.src = dataurl;
+  });
+}
+
 async function callEditImage(
   imageBase64: string,
   prompt: string,
@@ -156,12 +207,19 @@ async function callEditImage(
 ) {
   const formData = new FormData();
   
-  formData.append('image', dataURLtoBlob(imageBase64), 'image.png');
+  const resizedImageBase64 = await resizeImageIfNeeded(imageBase64);
+  const imageMime = resizedImageBase64.match(/:(.*?);/)?.[1] || 'image/png';
+  const imageExt = imageMime.split('/')[1] || 'png';
+  formData.append('image', dataURLtoBlob(resizedImageBase64), `image.${imageExt}`);
+  
   formData.append('prompt', prompt);
 
   if (extra) {
     if (extra.maskBase64) {
-      formData.append('mask', dataURLtoBlob(extra.maskBase64), 'mask.png');
+      const resizedMaskBase64 = await resizeImageIfNeeded(extra.maskBase64);
+      const maskMime = resizedMaskBase64.match(/:(.*?);/)?.[1] || 'image/png';
+      const maskExt = maskMime.split('/')[1] || 'png';
+      formData.append('mask', dataURLtoBlob(resizedMaskBase64), `mask.${maskExt}`);
     }
     if (extra.aspectRatio) {
       formData.append('aspectRatio', extra.aspectRatio);
@@ -170,7 +228,10 @@ async function callEditImage(
       for (let i = 0; i < extra.userFiles.length; i++) {
         const filePart = extra.userFiles[i];
         if (filePart.url) {
-          formData.append('userFiles', dataURLtoBlob(filePart.url), `userFile-${i}.png`);
+          const resizedUrl = await resizeImageIfNeeded(filePart.url);
+          const urlMime = resizedUrl.match(/:(.*?);/)?.[1] || 'image/png';
+          const urlExt = urlMime.split('/')[1] || 'png';
+          formData.append('userFiles', dataURLtoBlob(resizedUrl), `userFile-${i}.${urlExt}`);
         }
       }
     }
@@ -536,7 +597,10 @@ export const useEditorStore = create<EditorState>()(
           if (!state.image) throw new Error('No image to save');
           
           const formData = new FormData();
-          formData.append('image', dataURLtoBlob(state.image), 'image.png');
+          const resizedImageBase64 = await resizeImageIfNeeded(state.image);
+          const imageMime = resizedImageBase64.match(/:(.*?);/)?.[1] || 'image/png';
+          const imageExt = imageMime.split('/')[1] || 'png';
+          formData.append('image', dataURLtoBlob(resizedImageBase64), `image.${imageExt}`);
           
           if (state.prompt) {
             formData.append('prompt', state.prompt);
