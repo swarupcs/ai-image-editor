@@ -18,6 +18,15 @@ import {
 } from '@/config/prompts.config';
 import { pushToHistory } from './core-slice';
 import { toast } from 'sonner';
+import { calculateEditCost, calculateGenerateCost } from '@/lib/utils/credits.utils';
+
+function checkSufficientCredits(credits: number | null, required: number): boolean {
+  if (credits !== null && credits < required) {
+    toast.warning(`Insufficient credits. Required: ${required}, Available: ${credits}.`);
+    return false;
+  }
+  return true;
+}
 
 export const createAIActionsSlice: StateCreator<EditorState, [], [], AIActionsSlice> = (
   set,
@@ -25,6 +34,12 @@ export const createAIActionsSlice: StateCreator<EditorState, [], [], AIActionsSl
 ) => ({
   generateEdit: async () => {
     const state = get();
+    const cost = calculateEditCost({
+      hasMask: !!state.mask,
+      userFilesCount: state.userFiles.length,
+    });
+    if (!checkSufficientCredits(state.credits, cost)) return;
+    
     set({ isLoading: true });
     try {
       const data = await callEditImage(state.image!, INPAINTING_PROMPT(state.prompt), {
@@ -44,6 +59,10 @@ export const createAIActionsSlice: StateCreator<EditorState, [], [], AIActionsSl
   generateFromPrompt: async () => {
     const state = get();
     if (!state.prompt.trim()) return;
+    
+    const cost = calculateGenerateCost();
+    if (!checkSufficientCredits(state.credits, cost)) return;
+
     set({ isLoading: true });
     try {
       const data = await callGenerate(state.prompt);
@@ -73,6 +92,9 @@ export const createAIActionsSlice: StateCreator<EditorState, [], [], AIActionsSl
 
   applyFilter: async (prompt) => {
     const state = get();
+    const cost = calculateEditCost({ isFilter: true });
+    if (!checkSufficientCredits(state.credits, cost)) return;
+
     set({ isLoading: true });
     const finalPrompt = `${prompt}${FILTER_PROMPT_SUFFIX}`;
     try {
@@ -90,6 +112,10 @@ export const createAIActionsSlice: StateCreator<EditorState, [], [], AIActionsSl
   applyExpansion: async (aspectRatio) => {
     const state = get();
     if (!state.image) return;
+    
+    const cost = calculateEditCost();
+    if (!checkSufficientCredits(state.credits, cost)) return;
+
     set({ isLoading: true });
     try {
       const data = await callEditImage(state.image, EXPANSION_PROMPT(state.prompt), { aspectRatio });
@@ -106,6 +132,10 @@ export const createAIActionsSlice: StateCreator<EditorState, [], [], AIActionsSl
   removeBackground: async () => {
     const state = get();
     if (!state.image) return;
+
+    const cost = calculateEditCost();
+    if (!checkSufficientCredits(state.credits, cost)) return;
+
     set({ isLoading: true });
     try {
       const data = await callEditImage(state.image, REMOVE_BG_PROMPT);
@@ -122,6 +152,10 @@ export const createAIActionsSlice: StateCreator<EditorState, [], [], AIActionsSl
   enhanceImage: async () => {
     const state = get();
     if (!state.image) return;
+
+    const cost = calculateEditCost();
+    if (!checkSufficientCredits(state.credits, cost)) return;
+
     set({ isLoading: true });
     try {
       const data = await callEditImage(state.image, ENHANCE_IMAGE_PROMPT);
@@ -138,6 +172,10 @@ export const createAIActionsSlice: StateCreator<EditorState, [], [], AIActionsSl
   enhanceFace: async () => {
     const state = get();
     if (!state.image) return;
+
+    const cost = calculateEditCost();
+    if (!checkSufficientCredits(state.credits, cost)) return;
+
     set({ isLoading: true });
     try {
       const data = await callEditImage(state.image, ENHANCE_FACE_PROMPT);
@@ -154,6 +192,10 @@ export const createAIActionsSlice: StateCreator<EditorState, [], [], AIActionsSl
   applyBlend: async (blendPrompt) => {
     const state = get();
     if (!state.image || !state.blendSource) return;
+
+    const cost = calculateEditCost({ userFilesCount: 1 });
+    if (!checkSufficientCredits(state.credits, cost)) return;
+
     set({ isLoading: true });
     const prompt = blendPrompt || BLEND_PROMPT_DEFAULT;
     try {
@@ -190,6 +232,10 @@ export const createAIActionsSlice: StateCreator<EditorState, [], [], AIActionsSl
   recolorArea: async (targetColor) => {
     const state = get();
     if (!state.image) return;
+
+    const cost = calculateEditCost({ hasMask: !!state.mask });
+    if (!checkSufficientCredits(state.credits, cost)) return;
+
     set({ isLoading: true });
     try {
       const data = await callEditImage(state.image, RECOLOR_PROMPT(targetColor), {
@@ -208,6 +254,10 @@ export const createAIActionsSlice: StateCreator<EditorState, [], [], AIActionsSl
   replaceBackground: async (scene) => {
     const state = get();
     if (!state.image) return;
+
+    const cost = calculateEditCost();
+    if (!checkSufficientCredits(state.credits, cost)) return;
+
     set({ isLoading: true });
     try {
       const data = await callEditImage(state.image, REPLACE_BG_PROMPT(scene));

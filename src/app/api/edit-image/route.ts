@@ -5,6 +5,7 @@ import { checkCredits, deductCredits } from '@/lib/services/credits.service';
 import { checkRateLimit, recordRequest } from '@/lib/services/rate-limit.service';
 import { createGoogleAI, generateWithRetry, fixImageOrientation, buildImagePart } from '@/lib/services/ai.service';
 import { cleanBase64Image, fileToBase64 } from '@/lib/utils/image.utils';
+import { calculateEditCost } from '@/lib/utils/credits.utils';
 
 export async function POST(request: Request) {
   try {
@@ -25,11 +26,13 @@ export async function POST(request: Request) {
     // Rate limit check
     await checkRateLimit(userId, 'edit-image');
 
-    // Calculate and check credits
-    const inputImagesCount = 1 + (maskFile ? 1 : 0) + userFiles.length;
-    const filterCost = isFilter ? 1 : 0;
-    const upfrontCost = inputImagesCount + filterCost;
-    await checkCredits(userId, upfrontCost);
+    // Calculate and check credits for the entire operation
+    const totalMaxCost = calculateEditCost({
+      hasMask: !!maskFile,
+      userFilesCount: userFiles.length,
+      isFilter,
+    });
+    await checkCredits(userId, totalMaxCost);
 
     // Record this request for rate limiting
     await recordRequest(userId, 'edit-image');
@@ -44,8 +47,10 @@ export async function POST(request: Request) {
       );
     }
 
-    // Deduct upfront cost
-    await deductCredits(userId, upfrontCost, `API Call: Edit Image (${inputImagesCount} inputs${isFilter ? ', filter' : ''})`);
+    // Deduct upfront cost (base + inputs + filter)
+    // We deduct the generation cost (1) later when the image is successfully returned.
+    const upfrontCost = totalMaxCost - 1;
+    await deductCredits(userId, upfrontCost, `API Call: Edit Image (${userFiles.length} inputs${isFilter ? ', filter' : ''})`);
 
     // Process images
     const imageBase64 = await fileToBase64(imageFile);

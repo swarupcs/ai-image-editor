@@ -3,13 +3,17 @@ import { requireAuth } from '@/lib/services/auth-guard';
 import { checkCredits, deductCredits } from '@/lib/services/credits.service';
 import { checkRateLimit, recordRequest } from '@/lib/services/rate-limit.service';
 import { createGoogleAI } from '@/lib/services/ai.service';
+import { calculateGenerateCost } from '@/lib/utils/credits.utils';
 
 export async function POST(request: Request) {
   try {
     const { userId } = await requireAuth();
     // Rate limit check
     await checkRateLimit(userId, 'generate');
-    await checkCredits(userId, 1);
+    
+    // Check if the user has enough credits for the max possible cost (1 upfront + 4 results)
+    const maxCost = calculateGenerateCost();
+    await checkCredits(userId, maxCost);
 
     const { prompt, aspectRatio } = await request.json();
     if (!prompt?.trim()) {
