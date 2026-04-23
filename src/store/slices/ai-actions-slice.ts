@@ -20,9 +20,17 @@ import { pushToHistory } from './core-slice';
 import { toast } from 'sonner';
 import { calculateEditCost, calculateGenerateCost } from '@/lib/utils/credits.utils';
 
-function checkSufficientCredits(credits: number | null, required: number): boolean {
+function checkSufficientCredits(
+  credits: number | null, 
+  required: number, 
+  apiKey: string | null,
+  setShowApiKeyModal: (show: boolean) => void
+): boolean {
+  if (apiKey) return true; // Bypass internal credit check if using own key
+
   if (credits !== null && credits < required) {
-    toast.warning(`Insufficient credits. Required: ${required}, Available: ${credits}.`);
+    setShowApiKeyModal(true);
+    toast.error(`Insufficient credits. Please add your own Gemini API key to continue.`);
     return false;
   }
   return true;
@@ -38,7 +46,7 @@ export const createAIActionsSlice: StateCreator<EditorState, [], [], AIActionsSl
       hasMask: !!state.mask,
       userFilesCount: state.userFiles.length,
     });
-    if (!checkSufficientCredits(state.credits, cost)) return;
+    if (!checkSufficientCredits(state.credits, cost, state.apiKey, state.setShowApiKeyModal)) return;
     
     set({ isLoading: true });
     try {
@@ -61,7 +69,7 @@ export const createAIActionsSlice: StateCreator<EditorState, [], [], AIActionsSl
     if (!state.prompt.trim()) return;
     
     const cost = calculateGenerateCost();
-    if (!checkSufficientCredits(state.credits, cost)) return;
+    if (!checkSufficientCredits(state.credits, cost, state.apiKey, state.setShowApiKeyModal)) return;
 
     set({ isLoading: true });
     try {
@@ -93,7 +101,7 @@ export const createAIActionsSlice: StateCreator<EditorState, [], [], AIActionsSl
   applyFilter: async (prompt) => {
     const state = get();
     const cost = calculateEditCost({ isFilter: true });
-    if (!checkSufficientCredits(state.credits, cost)) return;
+    if (!checkSufficientCredits(state.credits, cost, state.apiKey, state.setShowApiKeyModal)) return;
 
     set({ isLoading: true });
     const finalPrompt = `${prompt}${FILTER_PROMPT_SUFFIX}`;
@@ -114,7 +122,7 @@ export const createAIActionsSlice: StateCreator<EditorState, [], [], AIActionsSl
     if (!state.image) return;
     
     const cost = calculateEditCost();
-    if (!checkSufficientCredits(state.credits, cost)) return;
+    if (!checkSufficientCredits(state.credits, cost, state.apiKey, state.setShowApiKeyModal)) return;
 
     set({ isLoading: true });
     try {
@@ -134,7 +142,7 @@ export const createAIActionsSlice: StateCreator<EditorState, [], [], AIActionsSl
     if (!state.image) return;
 
     const cost = calculateEditCost();
-    if (!checkSufficientCredits(state.credits, cost)) return;
+    if (!checkSufficientCredits(state.credits, cost, state.apiKey, state.setShowApiKeyModal)) return;
 
     set({ isLoading: true });
     try {
@@ -154,7 +162,7 @@ export const createAIActionsSlice: StateCreator<EditorState, [], [], AIActionsSl
     if (!state.image) return;
 
     const cost = calculateEditCost();
-    if (!checkSufficientCredits(state.credits, cost)) return;
+    if (!checkSufficientCredits(state.credits, cost, state.apiKey, state.setShowApiKeyModal)) return;
 
     set({ isLoading: true });
     try {
@@ -174,7 +182,7 @@ export const createAIActionsSlice: StateCreator<EditorState, [], [], AIActionsSl
     if (!state.image) return;
 
     const cost = calculateEditCost();
-    if (!checkSufficientCredits(state.credits, cost)) return;
+    if (!checkSufficientCredits(state.credits, cost, state.apiKey, state.setShowApiKeyModal)) return;
 
     set({ isLoading: true });
     try {
@@ -194,7 +202,7 @@ export const createAIActionsSlice: StateCreator<EditorState, [], [], AIActionsSl
     if (!state.image || !state.blendSource) return;
 
     const cost = calculateEditCost({ userFilesCount: 1 });
-    if (!checkSufficientCredits(state.credits, cost)) return;
+    if (!checkSufficientCredits(state.credits, cost, state.apiKey, state.setShowApiKeyModal)) return;
 
     set({ isLoading: true });
     const prompt = blendPrompt || BLEND_PROMPT_DEFAULT;
@@ -234,7 +242,7 @@ export const createAIActionsSlice: StateCreator<EditorState, [], [], AIActionsSl
     if (!state.image) return;
 
     const cost = calculateEditCost({ hasMask: !!state.mask });
-    if (!checkSufficientCredits(state.credits, cost)) return;
+    if (!checkSufficientCredits(state.credits, cost, state.apiKey, state.setShowApiKeyModal)) return;
 
     set({ isLoading: true });
     try {
@@ -256,7 +264,7 @@ export const createAIActionsSlice: StateCreator<EditorState, [], [], AIActionsSl
     if (!state.image) return;
 
     const cost = calculateEditCost();
-    if (!checkSufficientCredits(state.credits, cost)) return;
+    if (!checkSufficientCredits(state.credits, cost, state.apiKey, state.setShowApiKeyModal)) return;
 
     set({ isLoading: true });
     try {

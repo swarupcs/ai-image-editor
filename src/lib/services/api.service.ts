@@ -4,6 +4,7 @@
  */
 import { dataURLtoBlob, resizeImageIfNeeded } from '@/lib/utils/image.utils';
 import type { EditImageResponse, GenerateResponse } from '@/types';
+import { useEditorStore } from '@/store/useEditorState';
 
 /**
  * Call the /api/edit-image endpoint with image, prompt, and optional extras.
@@ -47,8 +48,15 @@ export async function callEditImage(
     }
   }
 
+  const apiKey = useEditorStore.getState().apiKey;
+  const headers: Record<string, string> = {};
+  if (apiKey) {
+    headers['X-Gemini-API-Key'] = apiKey;
+  }
+
   const res = await fetch('/api/edit-image', {
     method: 'POST',
+    headers,
     body: formData,
   });
   if (!res.ok) {
@@ -69,9 +77,15 @@ export async function callGenerate(
   prompt: string,
   aspectRatio?: string,
 ): Promise<GenerateResponse> {
+  const apiKey = useEditorStore.getState().apiKey;
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (apiKey) {
+    headers['X-Gemini-API-Key'] = apiKey;
+  }
+
   const res = await fetch('/api/generate', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({ prompt, aspectRatio }),
   });
   if (!res.ok) {
@@ -88,11 +102,13 @@ export async function callGenerate(
 /**
  * Fetch the current user's credit count.
  */
-export async function fetchUserCredits(): Promise<number> {
+export async function fetchUserCredits(): Promise<{ credits: number }> {
   const res = await fetch('/api/credits');
-  if (!res.ok) return 0;
+  if (!res.ok) return { credits: 0 };
   const data = await res.json();
-  return data.credits ?? 0;
+  return {
+    credits: data.credits ?? 0,
+  };
 }
 
 /**

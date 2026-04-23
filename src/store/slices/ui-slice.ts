@@ -12,6 +12,7 @@ export const createUISlice: StateCreator<EditorState, [], [], UISlice> = (
   showHistory: false,
   showBeforeAfter: false,
   showShortcutsModal: false,
+  showApiKeyModal: false,
   generatedVariations: null,
   blendSource: null,
   pickedColor: null,
@@ -27,6 +28,7 @@ export const createUISlice: StateCreator<EditorState, [], [], UISlice> = (
   }),
   toggleBeforeAfter: () => set((s) => ({ showBeforeAfter: !s.showBeforeAfter })),
   setShowShortcutsModal: (show) => set({ showShortcutsModal: show }),
+  setShowApiKeyModal: (show) => set({ showApiKeyModal: show }),
   setGeneratedVariations: (variations) => set({ generatedVariations: variations }),
   setBlendSource: (img) => set({ blendSource: img }),
   setPickedColor: (color) => {

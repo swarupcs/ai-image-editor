@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
+import { useEditorStore } from "@/store/useEditorState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -106,6 +107,8 @@ function Feedback({
 
 export default function ProfilePage() {
   const { data: session, update: updateSession } = useSession();
+  const globalApiKey = useEditorStore((s) => s.apiKey);
+  const setGlobalApiKey = useEditorStore((s) => s.setApiKey);
 
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -124,6 +127,13 @@ export default function ProfilePage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [passwordFeedback, setPasswordFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  // API key state
+  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [apiKeyFeedback, setApiKeyFeedback] = useState<{
     type: "success" | "error";
     message: string;
   } | null>(null);
@@ -202,6 +212,25 @@ export default function ProfilePage() {
     }
   };
 
+  const handleSaveApiKey = (e: React.FormEvent) => {
+    e.preventDefault();
+    setApiKeyFeedback(null);
+    if (apiKeyInput.trim() === "") {
+      setGlobalApiKey(null);
+      setApiKeyFeedback({ type: "success", message: "API Key removed from local storage." });
+    } else {
+      setGlobalApiKey(apiKeyInput.trim());
+      setApiKeyInput("");
+      setApiKeyFeedback({ type: "success", message: "API Key saved locally!" });
+    }
+  };
+
+  const handleLogout = async () => {
+    setGlobalApiKey(null);
+    localStorage.removeItem("imgstudio-session");
+    await signOut();
+  };
+
   const providers = userData?.accounts.map((a) => a.provider) ?? [];
   if (userData?.hasPassword && !providers.includes("credentials")) {
     providers.unshift("credentials");
@@ -254,7 +283,7 @@ export default function ProfilePage() {
             </Button>
           </Link>
           <Button
-            onClick={() => signOut({ callbackUrl: "/signin" })}
+            onClick={handleLogout}
             variant="ghost"
             size="sm"
             className="h-8 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/80 px-2.5"
@@ -394,6 +423,50 @@ export default function ProfilePage() {
                     <Loader2 size={14} className="mr-2 animate-spin" />
                   )}
                   Save changes
+                </Button>
+              </form>
+            </div>
+
+            {/* API Key settings */}
+            <div className="rounded-2xl bg-zinc-900/50 border border-zinc-800/60 p-6 space-y-5">
+              <div className="flex items-center gap-2">
+                <Lock size={16} className="text-purple-400" />
+                <h2 className="text-sm font-semibold text-zinc-200">
+                  Gemini API Key
+                </h2>
+              </div>
+              <p className="text-zinc-400 text-sm">
+                Enter your own Gemini API Key from Google AI Studio to use the application without consuming your credits.
+                {globalApiKey && (
+                  <span className="block mt-1 text-emerald-400 font-medium">✓ You currently have a custom API key active in your browser.</span>
+                )}
+              </p>
+              <form onSubmit={handleSaveApiKey} className="space-y-4">
+                {apiKeyFeedback && (
+                  <Feedback
+                    type={apiKeyFeedback.type}
+                    message={apiKeyFeedback.message}
+                  />
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="api-key" className="text-zinc-400 text-sm">
+                    API Key (Leave empty to remove)
+                  </Label>
+                  <Input
+                    id="api-key"
+                    type="password"
+                    placeholder="AIzaSy..."
+                    value={apiKeyInput}
+                    onChange={(e) => setApiKeyInput(e.target.value)}
+                    className="h-11 bg-zinc-900/50 border-zinc-800 text-zinc-100 placeholder:text-zinc-600 focus:border-purple-500/50 focus:ring-purple-500/20"
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  size="sm"
+                  className="bg-purple-600 hover:bg-purple-500 text-white border-0 h-9 px-5"
+                >
+                  Save API Key
                 </Button>
               </form>
             </div>

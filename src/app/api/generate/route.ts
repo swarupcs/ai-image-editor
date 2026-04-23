@@ -4,6 +4,7 @@ import { checkCredits, deductCredits } from '@/lib/services/credits.service';
 import { checkRateLimit, recordRequest } from '@/lib/services/rate-limit.service';
 import { createGoogleAI } from '@/lib/services/ai.service';
 import { calculateGenerateCost } from '@/lib/utils/credits.utils';
+import { prisma } from '@/lib/prisma';
 
 export async function POST(request: Request) {
   try {
@@ -11,9 +12,13 @@ export async function POST(request: Request) {
     // Rate limit check
     await checkRateLimit(userId, 'generate');
     
+    const userApiKey = request.headers.get('X-Gemini-API-Key') || undefined;
+
     // Check if the user has enough credits for the max possible cost (1 upfront + 4 results)
     const maxCost = calculateGenerateCost();
-    await checkCredits(userId, maxCost);
+    if (!userApiKey) {
+      await checkCredits(userId, maxCost);
+    }
 
     const { prompt, aspectRatio } = await request.json();
     if (!prompt?.trim()) {
@@ -24,9 +29,11 @@ export async function POST(request: Request) {
     await recordRequest(userId, 'generate');
 
     // Deduct 1 credit upfront for calling the LLM
-    await deductCredits(userId, 1, 'API Call: Text to Image');
+    if (!userApiKey) {
+      await deductCredits(userId, 1, 'API Call: Text to Image');
+    }
 
-    const ai = createGoogleAI();
+    const ai = createGoogleAI(userApiKey);
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-preview-05-20',
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -52,8 +59,11 @@ export async function POST(request: Request) {
     }
 
     if (results.length > 0) {
-      const updatedCredits = await deductCredits(userId, results.length, `Successfully generated ${results.length} image(s)`);
-      return NextResponse.json({ results, credits: updatedCredits });
+      if (!userApiKey) {
+        const updatedCredits = await deductCredits(userId, results.length, `Successfully generated ${results.length} image(s)`);
+        return NextResponse.json({ results, credits: updatedCredits });
+      }
+      return NextResponse.json({ results });
     }
 
     return NextResponse.json({ error: 'Failed to generate image' }, { status: 500 });

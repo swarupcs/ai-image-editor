@@ -41,4 +41,5 @@ export const PERSISTED_KEYS: (keyof EditorState)[] = [
   'recentColors',
   'adjustments',
   'canvasEffects',
+  'apiKey',
 ];

@@ -1,36 +1,95 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Bring Your Own Key (BYOK) — Implementation Plan
 
-## Getting Started
+This plan details how we will allow users to add their own Gemini API key, seamlessly prompting them when they run out of credits, and bypassing internal credit deduction when a personal key is used.
 
-First, run the development server:
+## Architecture & Flow
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI (Editor/Profile)
+    participant API
+    participant DB
+    participant GoogleAI
+
+    User->>UI: Action requiring credits
+    UI->>UI: Check state.credits & state.hasApiKey
+    alt Insufficient Credits & No API Key
+        UI-->>User: Open API Key Modal
+        User->>UI: Submits API Key
+        UI->>API: PATCH /api/user (geminiApiKey)
+        API->>DB: Save Key
+        UI->>UI: update state.hasApiKey = true
+    end
+    
+    User->>UI: Action with Key saved
+    UI->>API: POST /api/generate
+    API->>DB: Fetch User (get geminiApiKey)
+    API->>API: Skip Credit Deduction
+    API->>GoogleAI: Generate using User's API Key
+    GoogleAI-->>API: Results
+    API-->>UI: Results
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Proposed Changes
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 1. Schema Updates
+#### [MODIFY] `prisma/schema.prisma`
+Add `geminiApiKey` to the `User` model:
+```prisma
+model User {
+  ...
+  geminiApiKey  String?  @db.Text
+  ...
+}
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 2. Backend API Updates
+#### [MODIFY] `src/app/api/user/route.ts`
+- **GET**: Return `hasGeminiApiKey: !!user.geminiApiKey` (never return the plaintext key to the client).
+- **PATCH**: Allow updating the `geminiApiKey`. If an empty string is provided, set it to `null` to remove it.
 
-## Learn More
+#### [MODIFY] `src/app/api/credits/route.ts`
+Update the response to return both the credit balance and the key status:
+```json
+{ "credits": 20, "hasApiKey": true }
+```
 
-To learn more about Next.js, take a look at the following resources:
+### 3. Backend AI & Credit Services
+#### [MODIFY] `src/lib/services/credits.service.ts`
+Update `checkCredits` and `deductCredits` to check if the user has a `geminiApiKey`. If they do, immediately return and bypass any credit enforcement or deduction.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+#### [MODIFY] `src/lib/services/ai.service.ts`
+Update `createGoogleAI(userApiKey?: string | null)`:
+- If `userApiKey` is provided, instantiate `@google/genai` with `{ apiKey: userApiKey }`.
+- If not provided, fallback to the existing Vertex AI configuration using service account credentials.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+#### [MODIFY] `src/app/api/edit-image/route.ts` & `src/app/api/generate/route.ts`
+Fetch the user's `geminiApiKey` from the database and pass it to `createGoogleAI()`.
 
-## Deploy on Vercel
+### 4. Frontend State & Services
+#### [MODIFY] `src/types/editor.types.ts` & `src/store/slices/core-slice.ts`
+Add `hasApiKey: boolean` to `CoreSlice`. Update `api.service.ts` to fetch and return this flag alongside credits, storing it in Zustand.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+#### [MODIFY] `src/store/slices/ui-slice.ts`
+Add `showApiKeyModal: boolean` state.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+#### [MODIFY] `src/store/slices/ai-actions-slice.ts`
+Update `checkSufficientCredits()`:
+- If `state.hasApiKey` is true, immediately return `true` (bypass client-side cost check).
+- If credits are insufficient, call `set({ showApiKeyModal: true })` to prompt the user seamlessly, instead of just showing a generic error.
+
+### 5. Frontend UI
+#### [NEW] `src/components/editor/modals/api-key-modal.tsx`
+A modal that informs the user they are out of credits and prompts them to enter their Gemini API key (from Google AI Studio) to continue using the application for free.
+
+#### [MODIFY] `src/app/(protected)/profile/page.tsx`
+Add a "Bring Your Own Key" section under Settings where users can add, update, or remove their Gemini API key.
+
+## Verification Plan
+1. `npx prisma generate` to apply schema changes.
+2. In the app, set a user's credits to 0.
+3. Try an AI action -> verify the **API Key Modal** opens.
+4. Input a valid Gemini API key.
+5. Try the AI action again -> verify it succeeds using the provided key and 0 credits are deducted.
+6. `npm run build` and `tsc --noEmit` pass with zero errors.

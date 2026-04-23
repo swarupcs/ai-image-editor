@@ -6,10 +6,14 @@ import { GoogleGenAI, type GenerateContentResponse } from '@google/genai';
 import sharp from 'sharp';
 
 /**
- * Create a configured GoogleGenAI client using Vertex AI.
- * Handles optional service account credentials.
+ * Create a configured GoogleGenAI client using Vertex AI,
+ * or a standard client if a user API key is provided.
  */
-export function createGoogleAI(): GoogleGenAI {
+export function createGoogleAI(userApiKey?: string | null): GoogleGenAI {
+  if (userApiKey) {
+    return new GoogleGenAI({ apiKey: userApiKey });
+  }
+
   const googleAuthOptions =
     process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY
       ? {

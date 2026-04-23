@@ -36,12 +36,14 @@ export const createCoreSlice: StateCreator<EditorState, [], [], CoreSlice> = (
   selectedTool: ToolType.MOVE,
   brushSize: 100,
   credits: null,
+  apiKey: null,
 
   setMask: (mask) => set({ mask }),
   setBrushSize: (size) => set({ brushSize: size }),
   setSelectedTool: (tool) => set({ selectedTool: tool }),
   setUserFiles: (files) => set({ userFiles: files }),
   setCredits: (credits) => set({ credits }),
+  setApiKey: (key) => set({ apiKey: key }),
   setLoading: (val) => set({ isLoading: val }),
   setPrompt: (prompt) => set({ prompt }),
 
@@ -82,8 +84,8 @@ export const createCoreSlice: StateCreator<EditorState, [], [], CoreSlice> = (
 
   fetchCredits: async () => {
     try {
-      const credits = await fetchUserCredits();
-      set({ credits });
+      const data = await fetchUserCredits();
+      set({ credits: data.credits });
     } catch {
       /* silent */
     }

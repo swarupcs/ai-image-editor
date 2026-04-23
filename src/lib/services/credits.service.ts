@@ -38,6 +38,11 @@ export async function deductCredits(
   description: string,
   type: string = 'USAGE',
 ): Promise<number> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { credits: true },
+  });
+
   const [updatedUser] = await prisma.$transaction([
     prisma.user.update({
       where: { id: userId },

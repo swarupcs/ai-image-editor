@@ -23,6 +23,7 @@ export type CoreSlice = {
   selectedTool: ToolType;
   brushSize: number;
   credits: number | null;
+  apiKey: string | null;
 
   setMask: (mask: string) => void;
   setBrushSize: (size: number) => void;
@@ -35,6 +36,7 @@ export type CoreSlice = {
   setImage: (imageData: string) => void;
   setPrompt: (prompt: string) => void;
   setCredits: (credits: number) => void;
+  setApiKey: (key: string | null) => void;
   fetchCredits: () => Promise<void>;
   setSelectedTool: (tool: ToolType) => void;
   resetEditor: () => void;
@@ -44,6 +46,7 @@ export type UISlice = {
   showHistory: boolean;
   showBeforeAfter: boolean;
   showShortcutsModal: boolean;
+  showApiKeyModal: boolean;
   generatedVariations: string[] | null;
   blendSource: string | null;
   pickedColor: string | null;
@@ -56,6 +59,7 @@ export type UISlice = {
   toggleHistory: () => void;
   toggleBeforeAfter: () => void;
   setShowShortcutsModal: (show: boolean) => void;
+  setShowApiKeyModal: (show: boolean) => void;
   setGeneratedVariations: (variations: string[] | null) => void;
   setBlendSource: (img: string | null) => void;
   setPickedColor: (color: string | null) => void;

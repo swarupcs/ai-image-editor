@@ -23,6 +23,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    const userApiKey = request.headers.get('X-Gemini-API-Key') || undefined;
+
     // Rate limit check
     await checkRateLimit(userId, 'edit-image');
 
@@ -32,7 +34,10 @@ export async function POST(request: Request) {
       userFilesCount: userFiles.length,
       isFilter,
     });
-    await checkCredits(userId, totalMaxCost);
+    
+    if (!userApiKey) {
+      await checkCredits(userId, totalMaxCost);
+    }
 
     // Record this request for rate limiting
     await recordRequest(userId, 'edit-image');
@@ -50,7 +55,9 @@ export async function POST(request: Request) {
     // Deduct upfront cost (base + inputs + filter)
     // We deduct the generation cost (1) later when the image is successfully returned.
     const upfrontCost = totalMaxCost - 1;
-    await deductCredits(userId, upfrontCost, `API Call: Edit Image (${userFiles.length} inputs${isFilter ? ', filter' : ''})`);
+    if (!userApiKey) {
+      await deductCredits(userId, upfrontCost, `API Call: Edit Image (${userFiles.length} inputs${isFilter ? ', filter' : ''})`);
+    }
 
     // Process images
     const imageBase64 = await fileToBase64(imageFile);
@@ -79,7 +86,7 @@ export async function POST(request: Request) {
     }
 
     // Generate
-    const ai = createGoogleAI();
+    const ai = createGoogleAI(userApiKey);
     const response = await generateWithRetry(ai, {
       model: 'gemini-2.5-flash-image',
       contents: [{ role: 'user', parts }],
@@ -95,11 +102,14 @@ export async function POST(request: Request) {
         if (part.text) {
           console.log(part.text);
         } else if (part.inlineData) {
-          const updatedCredits = await deductCredits(userId, 1, 'Successfully generated edited image');
+          let updatedCredits = null;
+          if (!userApiKey) {
+            updatedCredits = await deductCredits(userId, 1, 'Successfully generated edited image');
+          }
           const mimeType = part.inlineData.mimeType ?? 'image/png';
           return NextResponse.json({
             result: `data:${mimeType};base64,${part.inlineData.data}`,
-            credits: updatedCredits,
+            ...(updatedCredits !== null && { credits: updatedCredits }),
           });
         }
       }

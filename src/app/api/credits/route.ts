@@ -11,7 +11,9 @@ export async function GET() {
       select: { credits: true },
     });
 
-    return NextResponse.json({ credits: user?.credits ?? 0 });
+    return NextResponse.json({ 
+      credits: user?.credits ?? 0,
+    });
   } catch (e) {
     if (e instanceof Response) return e;
     throw e;

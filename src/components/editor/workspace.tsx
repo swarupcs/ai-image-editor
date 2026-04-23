@@ -13,6 +13,7 @@ import { BeforeAfterSlider } from "@/components/editor/panels/before-after-slide
 import { PromptTemplates } from "@/components/editor/panels/prompt-templates";
 import { VariationsOverlay } from "@/components/editor/panels/variations-overlay";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { ApiKeyModal } from "@/components/editor/modals/api-key-modal";
 import {
   ImagePlus,
   Upload,
@@ -354,6 +355,7 @@ export default function EditorWorkspace() {
       </div>
 
       {showBeforeAfter && <BeforeAfterSlider />}
+      <ApiKeyModal />
     </>
   );
 }
