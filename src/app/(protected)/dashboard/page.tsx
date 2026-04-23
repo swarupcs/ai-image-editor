@@ -30,15 +30,16 @@ export default async function DashboardPage() {
   const totalImages = await prisma.generatedImage.count({
     where: { userId: user.id },
   });
-  
+
   const publicImages = await prisma.generatedImage.count({
     where: { userId: user.id, isPublic: true },
   });
 
-  // Calculate credits used (approximate: 20 initial + earned - remaining. Assuming just 20 max for now if we don't have transactions)
-  // But wait, the original stats API calculated it. Let's do a simple calculation:
-  // If we assume each image costs 1 credit, credits used = totalImages.
-  const creditsUsed = totalImages;
+  const usageTransactions = await prisma.creditTransaction.aggregate({
+    where: { userId: user.id, type: 'USAGE' },
+    _sum: { amount: true }
+  });
+  const creditsUsed = Math.abs(usageTransactions._sum.amount || 0);
 
   const stats = {
     totalImages,
@@ -46,7 +47,6 @@ export default async function DashboardPage() {
     creditsUsed,
     creditsRemaining: user.credits,
   };
-
   const recentImages = user.images;
 
   return (

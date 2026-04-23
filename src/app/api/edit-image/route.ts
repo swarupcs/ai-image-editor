@@ -70,11 +70,39 @@ export async function POST(request: Request) {
   const maskFile = formData.get('mask') as File | null;
   const prompt = formData.get('prompt') as string;
   const aspectRatio = formData.get('aspectRatio') as string;
+  const isFilter = formData.get('isFilter') === 'true';
   const userFiles = formData.getAll('userFiles') as File[];
 
   if (!imageFile || !prompt) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
+
+  const inputImagesCount = 1 + (maskFile ? 1 : 0) + userFiles.length;
+  const filterCost = isFilter ? 1 : 0;
+  const upfrontCost = inputImagesCount + filterCost;
+
+  if (!user || user.credits < upfrontCost) {
+    return NextResponse.json(
+      { error: `Insufficient credits. Need at least ${upfrontCost} credits for this operation.`, credits: user?.credits || 0 },
+      { status: 402 },
+    );
+  }
+
+  // Deduct upfront cost
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: session.user.id },
+      data: { credits: { decrement: upfrontCost } },
+    }),
+    prisma.creditTransaction.create({
+      data: {
+        userId: session.user.id,
+        amount: -upfrontCost,
+        type: 'USAGE',
+        description: `API Call: Edit Image (${inputImagesCount} inputs${isFilter ? ', filter' : ''})`,
+      },
+    }),
+  ]);
 
   const config = await prisma.systemConfig.findUnique({
     where: { id: 'default' },
@@ -171,18 +199,28 @@ export async function POST(request: Request) {
       if (part.text) {
         console.log(part.text);
       } else if (part.inlineData) {
-        // ✅ Decrement credits on successful generation
-        const updated = await prisma.user.update({
-          where: { id: session.user.id },
-          data: { credits: { decrement: 1 } },
-          select: { credits: true },
-        });
+        // ✅ Decrement credits on successful generation and log transaction
+        const [updatedUser] = await prisma.$transaction([
+          prisma.user.update({
+            where: { id: session.user.id },
+            data: { credits: { decrement: 1 } },
+            select: { credits: true },
+          }),
+          prisma.creditTransaction.create({
+            data: {
+              userId: session.user.id,
+              amount: -1,
+              type: 'USAGE',
+              description: 'Successfully generated edited image',
+            },
+          }),
+        ]);
 
         const mimeType = part.inlineData.mimeType ?? 'image/png';
 
         return NextResponse.json({
           result: `data:${mimeType};base64,${part.inlineData.data}`,
-          credits: updated.credits,
+          credits: updatedUser.credits,
         });
       }
     }

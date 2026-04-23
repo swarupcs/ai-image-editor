@@ -215,6 +215,9 @@ async function callEditImage(
   formData.append('prompt', prompt);
 
   if (extra) {
+    if (extra.isFilter) {
+      formData.append('isFilter', 'true');
+    }
     if (extra.maskBase64) {
       const resizedMaskBase64 = await resizeImageIfNeeded(extra.maskBase64);
       const maskMime = resizedMaskBase64.match(/:(.*?);/)?.[1] || 'image/png';
@@ -471,7 +474,7 @@ export const useEditorStore = create<EditorState>()(
         1. STRICTLY PRESERVE COMPOSITION: Do not change pose, camera angle, or object placement.
         2. Style transfer only — keep structure identical, only change texture/lighting/colors.`;
           try {
-            const data = await callEditImage(state.image!, finalPrompt);
+            const data = await callEditImage(state.image!, finalPrompt, { isFilter: 'true' });
             if (data.credits !== undefined) set({ credits: data.credits });
             set({ ...pushToHistory(get(), data.result), isLoading: false });
             toast.success('Filter applied!');

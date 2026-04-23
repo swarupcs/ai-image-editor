@@ -50,6 +50,13 @@ export async function POST(request: Request) {
         email,
         password: hashedPassword,
         credits: config?.defaultCredits ?? 20,
+        transactions: {
+          create: {
+            amount: config?.defaultCredits ?? 20,
+            type: 'INITIAL',
+            description: 'Sign up bonus',
+          }
+        }
       },
     });
 

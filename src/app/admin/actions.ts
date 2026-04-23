@@ -20,15 +20,64 @@ async function checkAdmin() {
 
 export async function updateUserCredits(userId: string, newCredits: number) {
   await checkAdmin();
-  
-  await prisma.user.update({
-    where: { id: userId },
-    data: { credits: newCredits }
-  });
-  
+
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { credits: true }});
+  if (!user) throw new Error('User not found');
+
+  const diff = newCredits - user.credits;
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: userId },
+      data: { credits: newCredits }
+    }),
+    prisma.creditTransaction.create({
+      data: {
+        userId,
+        amount: diff,
+        type: diff >= 0 ? 'ADDON' : 'ADMIN_UPDATE',
+        description: `Admin updated credits from ${user.credits} to ${newCredits}`,
+      }
+    })
+  ]);
+
   revalidatePath('/admin/users');
 }
 
+export async function resetAllCredits() {
+  await checkAdmin();
+
+  const config = await prisma.systemConfig.findUnique({
+    where: { id: 'default' },
+    select: { defaultCredits: true }
+  });
+  const defaultCredits = config?.defaultCredits ?? 20;
+
+  const users = await prisma.user.findMany({ select: { id: true, credits: true }});
+
+  // Create transactions for all users and update their credits
+  const transactions = users.map(user => {
+    const diff = defaultCredits - user.credits;
+    return prisma.creditTransaction.create({
+      data: {
+        userId: user.id,
+        amount: diff,
+        type: 'ADMIN_UPDATE',
+        description: `Admin reset credits to default (${defaultCredits})`
+      }
+    });
+  });
+
+  await prisma.$transaction([
+    prisma.user.updateMany({
+      data: { credits: defaultCredits }
+    }),
+    ...transactions
+  ]);
+
+  revalidatePath('/admin/users');
+  return { message: `Successfully reset credits for ${users.length} users to ${defaultCredits}.` };
+}
 export async function toggleUserRole(userId: string, newRole: Role) {
   await checkAdmin();
   

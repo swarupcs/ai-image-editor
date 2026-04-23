@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
+import { ResetCreditsButton } from './reset-credits-button';
 
 export const metadata = { title: 'Manage Users | Admin Panel' };
 
@@ -25,9 +26,12 @@ export default async function AdminUsersPage() {
 
   return (
     <div className='space-y-6'>
-      <div>
-        <h1 className='text-3xl font-bold text-zinc-100'>Users</h1>
-        <p className='text-zinc-400'>Manage users, roles, and credit balances.</p>
+      <div className='flex items-center justify-between'>
+        <div>
+          <h1 className='text-3xl font-bold text-zinc-100'>Users</h1>
+          <p className='text-zinc-400'>Manage users, roles, and credit balances.</p>
+        </div>
+        <ResetCreditsButton />
       </div>
 
       <div className='bg-zinc-900/50 border border-zinc-800/50 rounded-xl overflow-hidden'>

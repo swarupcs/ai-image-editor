@@ -27,6 +27,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
   }
 
+  // Deduct 1 credit upfront for calling the LLM
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: session.user.id },
+      data: { credits: { decrement: 1 } },
+    }),
+    prisma.creditTransaction.create({
+      data: {
+        userId: session.user.id,
+        amount: -1,
+        type: 'USAGE',
+        description: 'API Call: Text to Image',
+      },
+    }),
+  ]);
+
   const googleAuthOptions = process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY
     ? {
         credentials: {
@@ -71,15 +87,26 @@ export async function POST(request: Request) {
   }
 
   if (results.length > 0) {
-    const updated = await prisma.user.update({
-      where: { id: session.user.id },
-      data: { credits: { decrement: 1 } },
-      select: { credits: true },
-    });
+    const outputsCount = results.length;
+    const [updatedUser] = await prisma.$transaction([
+      prisma.user.update({
+        where: { id: session.user.id },
+        data: { credits: { decrement: outputsCount } },
+        select: { credits: true },
+      }),
+      prisma.creditTransaction.create({
+        data: {
+          userId: session.user.id,
+          amount: -outputsCount,
+          type: 'USAGE',
+          description: `Successfully generated ${outputsCount} image(s)`,
+        },
+      }),
+    ]);
 
     return NextResponse.json({
       results,
-      credits: updated.credits,
+      credits: updatedUser.credits,
     });
   }
 
