@@ -20,6 +20,8 @@ export function SettingsForm() {
     rateLimitEnabled: true,
     rateLimitMaxRequests: 20,
     rateLimitWindowMin: 60,
+    announcementMessage: '',
+    announcementEnabled: false,
   });
 
   useEffect(() => {
@@ -37,6 +39,8 @@ export function SettingsForm() {
             rateLimitEnabled: data.rateLimitEnabled ?? true,
             rateLimitMaxRequests: data.rateLimitMaxRequests ?? 20,
             rateLimitWindowMin: data.rateLimitWindowMin ?? 60,
+            announcementMessage: data.announcementMessage || '',
+            announcementEnabled: data.announcementEnabled || false,
           });
         }
       } catch (error) {
@@ -48,7 +52,7 @@ export function SettingsForm() {
     fetchSettings();
   }, []);
 
-  const handleChange = (key: keyof typeof settings, value: boolean | number) => {
+  const handleChange = (key: keyof typeof settings, value: boolean | number | string) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -146,6 +150,35 @@ export function SettingsForm() {
             <span className="text-sm text-zinc-400">MB per file</span>
           </div>
         </div>
+      </div>
+
+      {/* Announcements */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium text-zinc-100 border-b border-zinc-800 pb-2">Announcements</h3>
+        
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label className="text-base text-zinc-200">Enable Announcement</Label>
+            <p className="text-sm text-zinc-400">Show a banner to all active users.</p>
+          </div>
+          <Switch 
+            checked={settings.announcementEnabled} 
+            onCheckedChange={(v) => handleChange('announcementEnabled', v)} 
+          />
+        </div>
+
+        {settings.announcementEnabled && (
+          <div className="grid gap-2">
+            <Label className="text-zinc-200">Announcement Message</Label>
+            <Input 
+              type="text" 
+              value={settings.announcementMessage}
+              onChange={(e) => handleChange('announcementMessage', e.target.value)}
+              placeholder="e.g. System maintenance tonight at 12 AM UTC"
+              className="bg-zinc-800/50 border-zinc-700 text-zinc-100"
+            />
+          </div>
+        )}
       </div>
 
       {/* Rate Limiting */}

@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { UserActions } from './user-actions';
+import { UserSearch } from './user-search';
 import {
   Table,
   TableBody,
@@ -14,14 +15,27 @@ import { ResetCreditsButton } from './reset-credits-button';
 
 export const metadata = { title: 'Manage Users | Admin Panel' };
 
-export default async function AdminUsersPage() {
+interface AdminUsersPageProps {
+  searchParams: Promise<{ q?: string }>;
+}
+
+export default async function AdminUsersPage({ searchParams }: AdminUsersPageProps) {
+  const { q: query } = await searchParams;
+
   const users = await prisma.user.findMany({
+    where: query ? {
+      OR: [
+        { name: { contains: query, mode: 'insensitive' } },
+        { email: { contains: query, mode: 'insensitive' } },
+      ],
+    } : undefined,
     orderBy: { createdAt: 'desc' },
     include: {
       _count: {
         select: { images: true },
       },
     },
+    take: 50,
   });
 
   return (
@@ -32,6 +46,10 @@ export default async function AdminUsersPage() {
           <p className='text-zinc-400'>Manage users, roles, and credit balances.</p>
         </div>
         <ResetCreditsButton />
+      </div>
+
+      <div className='flex items-center justify-between'>
+        <UserSearch />
       </div>
 
       <div className='bg-zinc-900/50 border border-zinc-800/50 rounded-xl overflow-hidden'>

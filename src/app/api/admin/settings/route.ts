@@ -32,17 +32,19 @@ export async function PATCH(request: Request) {
     await requireAdmin();
 
     const data = await request.json();
-    
+
     // Only pick allowed fields
-    const { 
-      maintenanceMode, 
-      publicGalleryEnabled, 
-      allowSignups, 
-      defaultCredits, 
+    const {
+      maintenanceMode,
+      publicGalleryEnabled,
+      allowSignups,
+      defaultCredits,
       maxImageSize,
       rateLimitEnabled,
       rateLimitMaxRequests,
       rateLimitWindowMin,
+      announcementMessage,
+      announcementEnabled,
     } = data;
 
     const updatedConfig = await prisma.systemConfig.upsert({
@@ -56,6 +58,8 @@ export async function PATCH(request: Request) {
         rateLimitEnabled,
         rateLimitMaxRequests,
         rateLimitWindowMin,
+        announcementMessage,
+        announcementEnabled,
       },
       create: {
         id: 'default',
@@ -67,12 +71,13 @@ export async function PATCH(request: Request) {
         rateLimitEnabled: rateLimitEnabled ?? true,
         rateLimitMaxRequests: rateLimitMaxRequests ?? 20,
         rateLimitWindowMin: rateLimitWindowMin ?? 60,
+        announcementMessage: announcementMessage ?? null,
+        announcementEnabled: announcementEnabled ?? false,
       },
     });
 
     return NextResponse.json(updatedConfig);
-  } catch (error) {
-    if (error instanceof Response) return error;
+  } catch (error) {    if (error instanceof Response) return error;
     console.error('Failed to update system config:', error);
     return NextResponse.json(
       { error: 'Internal Server Error' },

@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { GlobalAnnouncement } from "@/components/layout/global-announcement";
 
 export default async function ProtectedLayout({
   children,
@@ -12,5 +13,10 @@ export default async function ProtectedLayout({
     redirect("/signin");
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <GlobalAnnouncement />
+      {children}
+    </>
+  );
 }

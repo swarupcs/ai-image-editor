@@ -121,6 +121,8 @@ model SystemConfig {
   rateLimitEnabled     Boolean  @default(true)
   rateLimitMaxRequests Int      @default(20)
   rateLimitWindowMin   Int      @default(60)
+  announcementMessage  String?
+  announcementEnabled  Boolean  @default(false)
   updatedAt            DateTime @updatedAt
 }
 

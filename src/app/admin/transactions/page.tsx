@@ -4,6 +4,9 @@ import { auth } from '@/lib/auth';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatDistanceToNow } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { Download } from 'lucide-react';
+import Link from 'next/link';
 
 export const metadata = {
   title: 'Credit Transactions | ImgStudio Admin',
@@ -35,9 +38,17 @@ export default async function AdminTransactionsPage() {
 
   return (
     <div className='max-w-7xl mx-auto space-y-8'>
-      <div>
-        <h1 className='text-3xl font-bold text-zinc-100'>Credit Transactions</h1>
-        <p className='text-zinc-400'>Track all credit usage, addons, and initial signups across the platform.</p>
+      <div className='flex items-center justify-between'>
+        <div>
+          <h1 className='text-3xl font-bold text-zinc-100'>Credit Transactions</h1>
+          <p className='text-zinc-400'>Track all credit usage, addons, and initial signups across the platform.</p>
+        </div>
+        <Button asChild variant="outline" className="gap-2">
+          <Link href="/api/admin/transactions/export" prefetch={false}>
+            <Download className="h-4 w-4" />
+            Export CSV
+          </Link>
+        </Button>
       </div>
 
       <div className='bg-zinc-900/50 border border-zinc-800/50 rounded-xl overflow-hidden'>
