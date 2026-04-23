@@ -11,13 +11,14 @@ export function ImageActions({ imageId }: { imageId: string }) {
 
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this image?')) return;
-    
+
     setIsPending(true);
     try {
       await deleteImage(imageId);
-      toast.success('Image deleted successfully');
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to delete image');
+      toast.success('Image deleted');
+    } catch (e) {
+      const error = e as Error;
+      toast.error(error.message || 'Failed to delete image');
     } finally {
       setIsPending(false);
     }

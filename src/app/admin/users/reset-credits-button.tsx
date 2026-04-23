@@ -25,8 +25,9 @@ export function ResetCreditsButton() {
       const res = await resetAllCredits();
       toast.success(res.message);
       setIsOpen(false);
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to reset credits');
+    } catch (err) {
+      const error = err as Error;
+      toast.error(error.message || 'Failed to reset credits');
     } finally {
       setIsPending(false);
     }

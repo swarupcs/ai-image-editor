@@ -9,10 +9,9 @@ export type ImageProps = Experimental_GeneratedImage & {
 
 export const Image = ({
   base64,
-  uint8Array: _uint8Array,
   mediaType,
   ...props
-}: ImageProps) => (
+}: Omit<ImageProps, 'uint8Array'>) => (
   <img
     {...props}
     alt={props.alt}

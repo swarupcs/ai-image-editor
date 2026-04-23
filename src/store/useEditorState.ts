@@ -203,7 +203,7 @@ async function resizeImageIfNeeded(dataurl: string, maxSizeMB: number = 4.5): Pr
 async function callEditImage(
   imageBase64: string,
   prompt: string,
-  extra?: any,
+  extra?: Record<string, unknown>,
 ) {
   const formData = new FormData();
   
@@ -219,13 +219,13 @@ async function callEditImage(
       formData.append('isFilter', 'true');
     }
     if (extra.maskBase64) {
-      const resizedMaskBase64 = await resizeImageIfNeeded(extra.maskBase64);
+      const resizedMaskBase64 = await resizeImageIfNeeded(extra.maskBase64 as string);
       const maskMime = resizedMaskBase64.match(/:(.*?);/)?.[1] || 'image/png';
       const maskExt = maskMime.split('/')[1] || 'png';
       formData.append('mask', dataURLtoBlob(resizedMaskBase64), `mask.${maskExt}`);
     }
     if (extra.aspectRatio) {
-      formData.append('aspectRatio', extra.aspectRatio);
+      formData.append('aspectRatio', String(extra.aspectRatio));
     }
     if (extra.userFiles && Array.isArray(extra.userFiles)) {
       for (let i = 0; i < extra.userFiles.length; i++) {
@@ -246,7 +246,7 @@ async function callEditImage(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || 'Failed to generate');
+    throw new Error((err as { error?: string }).error || 'Failed to generate');
   }
   return res.json() as Promise<{ result: string; credits: number }>;
 }

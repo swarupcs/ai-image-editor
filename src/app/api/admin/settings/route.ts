@@ -18,7 +18,7 @@ export async function GET() {
 
     return NextResponse.json(config);
   } catch (error) {
-    console.error('Failed to get system config:', error);
+    console.error('Failed to update system config:', error);
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }
@@ -31,7 +31,12 @@ export async function PATCH(request: Request) {
     const session = await auth();
 
     // Check if the user is an admin
-    if (!session || (session.user as any)?.role !== 'ADMIN') {
+    const user = session?.user?.email ? await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { role: true }
+    }) : null;
+
+    if (!user || user.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

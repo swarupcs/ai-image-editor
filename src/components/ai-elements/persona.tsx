@@ -253,15 +253,19 @@ export const Persona: FC<PersonaProps> = memo(
     const asleepInput = useStateMachineInput(rive, stateMachine, "asleep");
 
     useEffect(() => {
+      // eslint-disable-next-line react-hooks/immutability
       if (listeningInput) {
         listeningInput.value = state === "listening";
       }
+      // eslint-disable-next-line react-hooks/immutability
       if (thinkingInput) {
         thinkingInput.value = state === "thinking";
       }
+      // eslint-disable-next-line react-hooks/immutability
       if (speakingInput) {
         speakingInput.value = state === "speaking";
       }
+      // eslint-disable-next-line react-hooks/immutability
       if (asleepInput) {
         asleepInput.value = state === "asleep";
       }

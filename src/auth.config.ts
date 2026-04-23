@@ -7,17 +7,17 @@ export const authConfig = {
   session: { strategy: "jwt" },
   providers: [],
   callbacks: {
-    async jwt({ token, user, trigger, session }) {
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.role = (user as any).role || "USER";
+        token.role = (user as unknown as { role: string }).role || "USER";
       }
       return token;
     },
     async session({ session, token }) {
       if (token && session.user) {
         session.user.id = token.id as string;
-        (session.user as any).role = token.role as string;
+        (session.user as unknown as { role: string }).role = token.role as string;
       }
       return session;
     },

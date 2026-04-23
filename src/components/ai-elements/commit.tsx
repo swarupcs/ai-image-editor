@@ -157,10 +157,23 @@ export const CommitTimestamp = ({
   children,
   ...props
 }: CommitTimestampProps) => {
-  const formatted = relativeTimeFormat.format(
-    Math.round((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
-    "day"
-  );
+  // Date.now() should only be evaluated on the client to avoid hydration mismatch
+  const [now, setNow] = useState<number | null>(null);
+  
+  useEffect(() => {
+    // A microtask delay to avoid the React cascading warning while still triggering a re-render
+    const timeout = setTimeout(() => {
+        setNow(Date.now());
+    }, 0);
+    return () => clearTimeout(timeout);
+  }, []);
+
+  const formatted = now
+    ? relativeTimeFormat.format(
+        Math.round((date.getTime() - now) / (1000 * 60 * 60 * 24)),
+        "day"
+      )
+    : "";
 
   return (
     <time

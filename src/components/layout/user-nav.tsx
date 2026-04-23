@@ -15,7 +15,7 @@ import Link from 'next/link';
 
 export function UserNav() {
   const { data: session } = useSession();
-  const isAdmin = (session?.user as any)?.role === 'ADMIN';
+  const isAdmin = (session?.user as unknown as { role: string })?.role === 'ADMIN';
 
   return (
     <DropdownMenu>

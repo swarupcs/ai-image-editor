@@ -9,7 +9,7 @@ const authRoutes = ["/signin", "/signup"];
 export default auth(async (req) => {
   const { pathname } = req.nextUrl;
   const isAuthenticated = !!req.auth;
-  const isAdmin = (req.auth?.user as any)?.role === 'ADMIN';
+  const isAdmin = (req.auth?.user as unknown as { role: string })?.role === 'ADMIN';
 
   // Check Maintenance Mode (except for static assets or the maintenance page itself)
   if (!isAdmin && pathname !== '/maintenance' && !pathname.startsWith('/api/') && !pathname.startsWith('/_next/')) {

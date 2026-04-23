@@ -92,16 +92,16 @@ const renderAttachmentImage = (
   isGrid: boolean
 ) =>
   isGrid ? (
-    <img
-      alt={filename || "Image"}
+    // eslint-disable-next-line @next/next/no-img-element
+    <img      alt={filename || "Image"}
       className="size-full object-cover"
       height={96}
       src={url}
       width={96}
     />
   ) : (
-    <img
-      alt={filename || "Image"}
+    // eslint-disable-next-line @next/next/no-img-element
+    <img      alt={filename || "Image"}
       className="size-full rounded object-cover"
       height={20}
       src={url}

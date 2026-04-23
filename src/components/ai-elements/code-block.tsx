@@ -396,9 +396,6 @@ export const CodeBlockContent = ({
   useEffect(() => {
     let cancelled = false;
 
-    // Reset to raw tokens when code changes (shows current code, not stale tokens)
-    setTokenized(highlightCode(code, language) ?? rawTokens);
-
     // Subscribe to async highlighting result
     highlightCode(code, language, (result) => {
       if (!cancelled) {

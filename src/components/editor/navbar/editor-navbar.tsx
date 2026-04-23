@@ -64,7 +64,7 @@ function NavMenu() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const isAdmin = (session?.user as any)?.role === 'ADMIN';
+  const isAdmin = (session?.user as unknown as { role: string })?.role === 'ADMIN';
 
   const navLinks = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },

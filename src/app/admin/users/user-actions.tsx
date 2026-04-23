@@ -45,8 +45,9 @@ export function UserActions({ user }: { user: UserData }) {
       await updateUserCredits(user.id, newCredits);
       toast.success(`Credits updated for ${user.email}`);
       setIsCreditDialogOpen(false);
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to update credits');
+    } catch (e) {
+      const error = e as Error;
+      toast.error(error.message || 'Failed to update credits');
     } finally {
       setIsPending(false);
     }
@@ -58,9 +59,10 @@ export function UserActions({ user }: { user: UserData }) {
 
     try {
       await toggleUserRole(user.id, newRole);
-      toast.success(`${user.email} is now an ${newRole}`);
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to update role');
+      toast.success(`Role updated for ${user.email}`);
+    } catch (e) {
+      const error = e as Error;
+      toast.error(error.message || 'Failed to update role');
     }
   };
 
@@ -68,10 +70,11 @@ export function UserActions({ user }: { user: UserData }) {
     setIsPending(true);
     try {
       await deleteUser(user.id);
-      toast.success(`User ${user.email} deleted`);
+      toast.success('User deleted');
       setIsDeleteDialogOpen(false);
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to delete user');
+    } catch (e) {
+      const error = e as Error;
+      toast.error(error.message || 'Failed to delete user');
     } finally {
       setIsPending(false);
     }
